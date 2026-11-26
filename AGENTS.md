@@ -468,7 +468,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
       RequestStartTransaction from CSMS, GetVariables/SetVariables
 - [x] `examples/v201/*` with smoke test; interop test against go-ocpp-sdk 2.0.1
 - [x] README and site update
-- [ ] Tag `v0.2.0` (ask owner first)
+- [x] Tag `v0.2.0` (ask owner first)
 
 ### Phase 9 — Hardening
 
