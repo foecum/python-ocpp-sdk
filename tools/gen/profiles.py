@@ -16,6 +16,10 @@ class Module:
     name: str
     title: str
     messages: tuple[str, ...]
+    #: Handler name in the high-level APIs: ``<handler>Handler`` (and ``Unimplemented...``).
+    handler: str = ""
+    #: Name of the module's field in the ``Config`` classes.
+    config_field: str = ""
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,9 @@ class Profile:
     request_suffix: str
     response_suffix: str
     modules: tuple[Module, ...]
+    #: Messages whose request the Charge Point / Charging Station sends (the rest are sent by the
+    #: CSMS); ``DataTransfer`` is sent by both.
+    from_station: frozenset[str]
     descriptions: dict[str, str]
     enums: dict[str, Named]
     types: dict[str, Named]
@@ -85,6 +92,8 @@ _MODULES_V16 = (
             "StopTransaction",
             "UnlockConnector",
         ),
+        "Core",
+        "core",
     ),
     Module(
         "firmware",
@@ -95,15 +104,33 @@ _MODULES_V16 = (
             "GetDiagnostics",
             "UpdateFirmware",
         ),
+        "Firmware",
+        "firmware",
     ),
-    Module("localauth", "Local Auth List Management", ("GetLocalListVersion", "SendLocalList")),
-    Module("reservation", "Reservation", ("CancelReservation", "ReserveNow")),
+    Module(
+        "localauth",
+        "Local Auth List Management",
+        ("GetLocalListVersion", "SendLocalList"),
+        "LocalAuthList",
+        "local_auth_list",
+    ),
+    Module(
+        "reservation",
+        "Reservation",
+        ("CancelReservation", "ReserveNow"),
+        "Reservation",
+        "reservation",
+    ),
     Module(
         "smartcharging",
         "Smart Charging",
         ("ClearChargingProfile", "GetCompositeSchedule", "SetChargingProfile"),
+        "SmartCharging",
+        "smart_charging",
     ),
-    Module("remotetrigger", "Remote Trigger", ("TriggerMessage",)),
+    Module(
+        "remotetrigger", "Remote Trigger", ("TriggerMessage",), "RemoteTrigger", "remote_trigger"
+    ),
 )
 
 _DESCRIPTIONS_V16 = {
@@ -403,6 +430,19 @@ V16 = Profile(
     request_suffix="Request",
     response_suffix="Confirmation",
     modules=_MODULES_V16,
+    from_station=frozenset(
+        {
+            "Authorize",
+            "BootNotification",
+            "DiagnosticsStatusNotification",
+            "FirmwareStatusNotification",
+            "Heartbeat",
+            "MeterValues",
+            "StartTransaction",
+            "StatusNotification",
+            "StopTransaction",
+        }
+    ),
     descriptions=_DESCRIPTIONS_V16,
     enums=_ENUMS_V16,
     types=_TYPES_V16,

@@ -11,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tools.gen import emit, schema
+from tools.gen import emit, handlers, schema
 from tools.gen.profiles import V16, Profile
 
 ROOT = schema.ROOT
@@ -55,6 +55,8 @@ def generate() -> dict[Path, str]:
             files[out / f"{module.name}.py"] = emit.render_module(
                 profile, ir, module.name, module.title
             )
+        for side in handlers.SIDES:
+            files[out / f"{side}_handlers.py"] = handlers.render(profile, ir, side)
     return {p: _format(str(p.relative_to(ROOT)), text) for p, text in files.items()}
 
 

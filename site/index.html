@@ -35,14 +35,14 @@
       <tr><td>Core: errors, date-times, OCPP-J frames, registry, endpoint</td><td>done</td></tr>
       <tr><td>WebSocket transport: server, client with reconnect, security profiles 1-3</td><td>done</td></tr>
       <tr><td>OCPP 1.6J message models (28 messages, six feature profiles)</td><td>done</td></tr>
-      <tr><td>OCPP 1.6J high-level <code>ChargePoint</code> and <code>CSMS</code> API</td><td>planned</td></tr>
+      <tr><td>OCPP 1.6J high-level <code>ChargePoint</code> and <code>CSMS</code> API</td><td>done</td></tr>
+      <tr><td>OCPP 1.6J transaction message queue</td><td>planned</td></tr>
       <tr><td>OCPP 1.6 security extension</td><td>planned</td></tr>
       <tr><td>OCPP 2.0.1</td><td>planned</td></tr>
       <tr><td>OCPP 2.1</td><td>planned</td></tr>
     </tbody>
   </table>
-  <p class="muted">The high-level station and CSMS classes do not exist yet, so a station or CSMS
-  cannot be built on this release; the layers below are what those APIs will sit on.</p>
+  <p class="muted">OCPP 1.6 stations and Central Systems can be built; 2.0.1 and 2.1 cannot yet.</p>
 
   <h2>Transport</h2>
   <p><code>ocpp_sdk.transport</code> is version-agnostic. A <code>Server</code> and a
@@ -166,6 +166,75 @@ assert answer.status is RegistrationStatus.ACCEPTED</code></pre>
   GetDiagnostics and UpdateFirmware. Naive datetimes are rejected; timestamps are sent in UTC with <code>Z</code>.
   An invalid incoming call is answered with the CALLERROR code that fits (1.6 spelling,
   <code>OccurenceConstraintViolation</code> included) and the offending field path.</p>
+
+  <h2>OCPP 1.6 Charge Point and CSMS</h2>
+  <p><code>ocpp_sdk.v16.charge_point.ChargePoint</code> is the client and <code>ocpp_sdk.v16.csms.CSMS</code>
+  the server; both are async context managers. Typed methods send each message and return the answer:
+  <code>await cp.boot_notification(BootNotificationRequest(...))</code> returns a
+  <code>BootNotificationConfirmation</code>; every method takes an optional <code>timeout=</code>.
+  The CSMS calls a station by ID, <code>await csms.reset("CP-1", ResetRequest(...))</code>, or through the
+  session object (<code>csms.ChargePoint</code>) its handlers receive.</p>
+  <ul>
+    <li><b>Handlers.</b> Each feature profile has a handler protocol per side (<code>CoreHandler</code>,
+    <code>FirmwareHandler</code>, <code>LocalAuthListHandler</code>, <code>ReservationHandler</code>,
+    <code>SmartChargingHandler</code>, <code>RemoteTriggerHandler</code>; the Central System receives only Core and
+    Firmware) in <code>ocpp_sdk.v16.charge_point_handlers</code> and <code>ocpp_sdk.v16.csms_handlers</code>.
+    Subclass the matching <code>Unimplemented...Handler</code> and override what you support; the rest answers
+    <code>NotSupported</code>. Methods are <code>on_&lt;message&gt;</code>, sync or async; CSMS handlers get the session first.
+    Wire them with the <code>Config</code> dataclass of each side; a profile left <code>None</code> answers
+    <code>NotSupported</code>, an unknown action <code>NotImplemented</code>.</li>
+    <li><b>Errors.</b> A handler that raises answers <code>InternalError</code> (the exception text is never sent);
+    raise <code>ocpp_sdk.errors.CallError(code, description)</code> to send a specific code. A CALLERROR from the
+    peer raises <code>CallError</code> in the caller.</li>
+    <li><b>Offline.</b> Calls fail fast with <code>NotConnectedError</code>, also a call cut off by a lost
+    connection. Nothing is queued or retried, and the station never sends BootNotification or Heartbeat on its own.
+    <code>ChargePoint</code> reconnects per OCPP-J 5.4 (<code>reconnect=Reconnect(...)</code>, <code>None</code> turns it off).</li>
+    <li><b>CSMS.</b> <code>charge_point_ids()</code>, <code>charge_point(id)</code>, <code>await for_each(fn)</code>
+    (identity order), <code>on_connect</code>/<code>on_disconnect</code> hooks, <code>await shutdown(timeout=...)</code>.
+    A station that reconnects gets a new session; the old session raises <code>NotConnectedError</code>.</li>
+  </ul>
+<pre><code>import asyncio
+from datetime import UTC, datetime
+
+from ocpp_sdk.v16.charge_point import ChargePoint
+from ocpp_sdk.v16.core import (
+    BootNotificationConfirmation,
+    BootNotificationRequest,
+    ResetRequest,
+)
+from ocpp_sdk.v16.csms import CSMS, Config
+from ocpp_sdk.v16.csms import ChargePoint as Session
+from ocpp_sdk.v16.csms_handlers import UnimplementedCoreHandler
+from ocpp_sdk.v16.types import RegistrationStatus, ResetType
+
+
+class MyCore(UnimplementedCoreHandler):
+    async def on_boot_notification(
+        self, charge_point: Session, request: BootNotificationRequest
+    ) -&gt; BootNotificationConfirmation:
+        print("boot from", charge_point.charge_point_id, request.charge_point_vendor)
+        return BootNotificationConfirmation(
+            status=RegistrationStatus.ACCEPTED, current_time=datetime.now(UTC), interval=300
+        )
+
+
+async def main() -&gt; None:
+    async with CSMS(Config(core=MyCore()), port=0) as csms:
+        url = f"ws://127.0.0.1:{csms.port}/ocpp/CP-1"
+        async with ChargePoint(url) as cp:
+            boot = await cp.boot_notification(
+                BootNotificationRequest(charge_point_vendor="Acme", charge_point_model="X1")
+            )
+            print(boot.status, boot.interval)
+            # the station has no handlers, so the CSMS' request is answered NotSupported
+            try:
+                await csms.reset("CP-1", ResetRequest(type=ResetType.SOFT))
+            except Exception as exc:
+                print(type(exc).__name__, exc)
+
+
+asyncio.run(main())
+</code></pre>
 
   <p>Source: <a href="https://github.com/foecum/python-ocpp-sdk">github.com/foecum/python-ocpp-sdk</a>.
   Sister project: <a href="https://github.com/foecum/go-ocpp-sdk">go-ocpp-sdk</a>.</p>

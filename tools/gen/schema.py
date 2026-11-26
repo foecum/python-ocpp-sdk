@@ -219,6 +219,10 @@ def load(profile: Profile) -> SchemaIR:
             req_ir.doc = doc
             res_ir.doc = f"The answer to {action}."
             b.ir.messages.append(MessageIR(action, module.name, doc, req_ir, res_ir))
+    if profile.from_station - listed:
+        raise GenError(
+            f"from_station lists unknown messages: {sorted(profile.from_station - listed)}"
+        )
     on_disk = {p.stem.removesuffix("Response") for p in schema_dir.glob("*.json")}
     unaccounted = on_disk - listed - profile.deferred
     if unaccounted:

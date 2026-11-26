@@ -405,15 +405,15 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 4 — High-level API for 1.6
 
-- [ ] Post the API sketch for `v16.charge_point` and `v16.csms` and wait for OK
-- [ ] Generated handler protocols, `Unimplemented...` bases, dispatch and typed
+- [x] Post the API sketch for `v16.charge_point` and `v16.csms` and wait for OK
+- [x] Generated handler protocols, `Unimplemented...` bases, dispatch and typed
       calls for 1.6
-- [ ] `ChargePoint` and `CSMS` classes, `Config` wiring, error/handler rules,
+- [x] `ChargePoint` and `CSMS` classes, `Config` wiring, error/handler rules,
       offline behaviour (section 4)
-- [ ] Integration test (in-process): BootNotification → StatusNotification →
+- [x] Integration test (in-process): BootNotification → StatusNotification →
       Authorize → StartTransaction → MeterValues → StopTransaction,
       plus RemoteStartTransaction and Reset from the CSMS
-- [ ] Tests for timeout, disconnect mid-call, reconnect, `NotSupported` /
+- [x] Tests for timeout, disconnect mid-call, reconnect, `NotSupported` /
       `NotImplemented` / `InternalError` answers
 
 ### Phase 5 — Remaining 1.6 profiles in the high-level API
@@ -576,6 +576,17 @@ Record each decision as: date — decision — reason.
 - 2026-11-26 — A JSON `null` for an optional field is accepted and read as absent (as
   go-ocpp-sdk does); `null` for a required field or array item is rejected. The schemas
   forbid null everywhere, so the mutation tests do not try it on optional fields.
+- 2026-11-26 — 1.6 high-level API (the owner waived the per-phase approval, so the sketch is
+  recorded here): `v16.charge_point.ChargePoint(url, config, ...)` and
+  `v16.csms.CSMS(config, ...)` with a session class `v16.csms.ChargePoint`. Generated per
+  side (`charge_point_handlers.py`, `csms_handlers.py`): one `<Profile>Handler` protocol and
+  `Unimplemented<Profile>Handler` per profile that has received messages, the `DISPATCH` table
+  (action -> `Config` field, method) and typed call mixins (`ChargePointCalls`, `StationCalls` for
+  the session, `CSMSCalls` taking a station ID). Handler methods are `on_<message>`, sync or
+  async; CSMS ones take the session first. The `Config` dataclasses are hand-written and a
+  test checks they match the dispatch tables. An action registered but not handled on a side,
+  or a `None` field, answers `NotSupported`; a handler that returns no model is `InternalError`.
+  `CSMS` adds `on_connect`/`on_disconnect` hooks, `charge_point(id)` and an async `for_each`.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 
