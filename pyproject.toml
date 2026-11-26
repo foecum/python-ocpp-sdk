@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ocpp-sdk"
+dynamic = ["version"]
+description = "Async Python SDK for OCPP-J (1.6J, 2.0.1, 2.1): charge point and central system roles."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Fauz Ecum" }]
+keywords = ["ocpp", "ev", "charging", "websocket", "asyncio"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+dependencies = ["pydantic>=2,<3"]
+
+[project.urls]
+Repository = "https://github.com/foecum/python-ocpp-sdk"
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "hypothesis",
+    "pytest-benchmark",
+    "jsonschema",
+    "types-jsonschema",
+]
+
+[tool.hatch.version]
+path = "src/ocpp_sdk/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/ocpp_sdk", "README.md", "LICENSE", "pyproject.toml"]
+exclude = ["docs/spec"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ocpp_sdk"]
+exclude = ["docs/spec"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["slow: builds and runs examples or opens many connections"]
+
+[tool.coverage.run]
+branch = true
+source = ["ocpp_sdk"]
+
+[tool.coverage.report]
+show_missing = true

@@ -353,7 +353,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 0 — Setup
 
-- [ ] `pyproject.toml` (name `ocpp-sdk`, package `ocpp_sdk`, Python >=3.11,
+- [x] `pyproject.toml` (name `ocpp-sdk`, package `ocpp_sdk`, Python >=3.11,
       hatchling, ruff/mypy/pytest/coverage config; `docs/spec/` excluded from
       sdist and wheel), `src/ocpp_sdk/__init__.py`, `py.typed`
 - [ ] `README.md` stub, `LICENSE` (confirm MIT with owner), `.gitignore`
