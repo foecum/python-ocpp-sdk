@@ -434,7 +434,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
       table, security profiles, logging, error handling
 - [x] `release.yml`: `uv build`, `twine check`, publish to PyPI with trusted
       publishing on tag push (owner sets up the PyPI side)
-- [ ] Tag `v0.1.0` (ask owner first)
+- [x] Tag `v0.1.0` (ask owner first)
 
 ### Phase 7 — OCPP 1.6 security extension
 
