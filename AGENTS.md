@@ -357,7 +357,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
       hatchling, ruff/mypy/pytest/coverage config; `docs/spec/` excluded from
       sdist and wheel), `src/ocpp_sdk/__init__.py`, `py.typed`
 - [x] `README.md` stub, `LICENSE` (confirm MIT with owner), `.gitignore`
-- [ ] `scripts/coverage.py` (95% per package)
+- [x] `scripts/coverage.py` (95% per package)
 - [ ] CI `ci.yml`: format check, lint, mypy, pytest + coverage script on a
       matrix of Python 3.11 → latest, on push and PR
 - [ ] `site/index.html` skeleton and `pages.yml` publishing only `site/`
