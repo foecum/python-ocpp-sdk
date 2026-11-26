@@ -361,7 +361,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 - [x] CI `ci.yml`: format check, lint, mypy, pytest + coverage script on a
       matrix of Python 3.11 → latest, on push and PR
 - [x] `site/index.html` skeleton and `pages.yml` publishing only `site/`
-- [ ] `docs/spec/README.md` listing which spec files are expected there
+- [x] `docs/spec/README.md` listing which spec files are expected there
 
 ### Phase 1 — Core (`errors`, `datetime`, `ocppj`)
 
