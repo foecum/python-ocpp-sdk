@@ -418,7 +418,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 5 — Remaining 1.6 profiles in the high-level API
 
-- [ ] Firmware Management, Local Auth List Management, Reservation,
+- [x] Firmware Management, Local Auth List Management, Reservation,
       Smart Charging, Remote Trigger wired into both sides; tests for each
 - [ ] 1.6 transaction message queue (`transaction_queue.py`) with in-memory and
       file stores
