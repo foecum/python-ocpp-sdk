@@ -26,7 +26,7 @@
   <p>Async Python SDK for OCPP-J (OCPP over JSON/WebSocket), for both the Charge
   Point / Charging Station and Central System / CSMS roles. PyPI name
   <code>ocpp-sdk</code>, import <code>ocpp_sdk</code>, Python 3.11+, MIT licence.</p>
-  <p class="muted">Pre-alpha: the core, transport and OCPP 1.6 message models exist; items marked "planned" do not.</p>
+  <p class="muted">Pre-alpha: the core, transport, OCPP 1.6 and OCPP 2.0.1 exist; items marked "planned" do not.</p>
 
   <h2>Install</h2>
 <pre><code>pip install ocpp-sdk   # Python 3.11 or newer; depends on pydantic 2 and websockets</code></pre>
@@ -44,11 +44,11 @@
       <tr><td>OCPP 1.6J transaction message queue</td><td>done</td></tr>
       <tr><td>OCPP 1.6J examples and go-ocpp-sdk interop tests</td><td>done</td></tr>
       <tr><td>OCPP 1.6 security extension (11 messages, AuthorizationKey helpers)</td><td>done</td></tr>
-      <tr><td>OCPP 2.0.1</td><td>planned</td></tr>
+      <tr><td>OCPP 2.0.1 (64 messages, 16 functional blocks, appendices constants, <code>ChargingStation</code> and <code>CSMS</code>)</td><td>done</td></tr>
       <tr><td>OCPP 2.1</td><td>planned</td></tr>
     </tbody>
   </table>
-  <p class="muted">OCPP 1.6 stations and Central Systems can be built; 2.0.1 and 2.1 cannot yet.</p>
+  <p class="muted">OCPP 1.6 and 2.0.1 stations and CSMSs can be built; 2.1 cannot yet.</p>
 
   <h2>Transport</h2>
   <p><code>ocpp_sdk.transport</code> is version-agnostic. A <code>Server</code> and a
@@ -318,6 +318,72 @@ async def main() -&gt; None:
 
 asyncio.run(main())
 </code></pre>
+
+  <h2>OCPP 2.0.1</h2>
+  <p>Same shape as 1.6, in <code>ocpp_sdk.v201</code>. The 64 messages are generated from the official schemas, one module
+  per functional block (<code>security</code>, <code>provisioning</code>, <code>authorization</code>, <code>localauthlist</code>,
+  <code>transactions</code>, <code>remotecontrol</code>, <code>availability</code>, <code>reservation</code>,
+  <code>tariffandcost</code>, <code>metervalues</code>, <code>smartcharging</code>, <code>firmware</code>,
+  <code>iso15118</code>, <code>diagnostics</code>, <code>displaymessage</code>, <code>datatransfer</code>), with the shared
+  datatypes and enums in <code>ocpp_sdk.v201.types</code>. Names follow the schemas without their <code>Type</code> /
+  <code>EnumType</code> suffix (<code>IdToken</code>, <code>RegistrationStatus</code>; the enum of an <code>IdToken</code> object is
+  <code>IdTokenEnum</code>) and messages are <code>&lt;Action&gt;Request</code> / <code>&lt;Action&gt;Response</code>.
+  <code>customData</code> keeps unknown vendor properties; other unknown properties are ignored.</p>
+  <ul>
+    <li><b>Classes.</b> <code>ocpp_sdk.v201.charging_station.ChargingStation</code> (client) and
+    <code>ocpp_sdk.v201.csms.CSMS</code> (server; the session handed to its handlers is <code>csms.ChargingStation</code>), each with a
+    <code>Config</code> that has one handler field per block the side receives (15 for the station, 13 for the CSMS).
+    Handler protocols and <code>Unimplemented...</code> bases are in <code>ocpp_sdk.v201.charging_station_handlers</code> and
+    <code>ocpp_sdk.v201.csms_handlers</code>; everything else (typed calls, <code>NotSupported</code> / <code>NotImplemented</code> /
+    <code>InternalError</code>, offline behaviour, reconnect, <code>for_each</code>, hooks) works as for 1.6.</li>
+    <li><b>Rules beyond the schemas</b> (clear statements of the spec text): <code>evseId</code> &gt; 0 where required, a
+    RequestStartTransaction profile of purpose TxProfile, <code>transactionId</code> in a profile only for TxProfile,
+    <code>valuesList</code> for option, member and sequence lists, <code>location</code> for a Published firmware,
+    SendLocalList Full with <code>idTokenInfo</code> on every entry, charging limits with one decimal, <code>phaseToUse</code> 1 to 3,
+    monitoring severity 0 to 9. An optional list that is present must not be empty (the schemas' <code>minItems</code>).</li>
+    <li><b>Appendices.</b> <code>ocpp_sdk.v201.appendices</code> has the standardized components, variables, units, reason codes
+    and security events of the appendices CSV files as constants (<code>Component.AUTH_CTRLR</code>, <code>Unit.KWH</code>,
+    <code>ReasonCode...</code>, <code>SecurityEvent...</code>), the device model table and
+    <code>is_known_security_event</code> / <code>is_critical_security_event</code>. Messages keep plain strings.</li>
+  </ul>
+<pre><code>import asyncio
+from datetime import UTC, datetime
+
+from ocpp_sdk.v201.charging_station import ChargingStation
+from ocpp_sdk.v201.csms import CSMS, Config
+from ocpp_sdk.v201.csms import ChargingStation as Session
+from ocpp_sdk.v201.csms_handlers import UnimplementedProvisioningHandler
+from ocpp_sdk.v201.provisioning import BootNotificationRequest, BootNotificationResponse
+from ocpp_sdk.v201.types import BootReason, RegistrationStatus
+from ocpp_sdk.v201.types import ChargingStation as StationInfo
+
+
+class Provisioning(UnimplementedProvisioningHandler):
+    async def on_boot_notification(
+        self, charging_station: Session, request: BootNotificationRequest
+    ) -&gt; BootNotificationResponse:
+        print("boot from", charging_station.charge_point_id, request.charging_station.model)
+        return BootNotificationResponse(
+            current_time=datetime.now(UTC), interval=300, status=RegistrationStatus.ACCEPTED
+        )
+
+
+async def main() -&gt; None:
+    async with CSMS(Config(provisioning=Provisioning()), port=0) as csms:
+        url = f"ws://127.0.0.1:{csms.port}/ocpp/CS-1"
+        async with ChargingStation(url) as station:
+            boot = await station.boot_notification(
+                BootNotificationRequest(
+                    charging_station=StationInfo(model="X1", vendor_name="Acme"),
+                    reason=BootReason.POWER_UP,
+                )
+            )
+            print(boot.status, boot.interval)
+
+
+asyncio.run(main())
+</code></pre>
+  <p>Examples: <code>examples/v201/csms.py</code> and <code>examples/v201/charging_station.py</code>, also tested against go-ocpp-sdk's 2.0.1 examples.</p>
 
   <h2>Examples</h2>
   <p><code>examples/v16/csms.py</code> and <code>examples/v16/charge_point.py</code> are a small Central System and a

@@ -109,6 +109,9 @@ async def main() -> None:
     parser.add_argument("--url", default="ws://127.0.0.1:9000/CP-1")
     parser.add_argument("--password")
     parser.add_argument("--stay", action="store_true", help="stay connected after the transaction")
+    parser.add_argument(
+        "--linger", type=float, default=1.0, help="seconds to stay so the CSMS can call back"
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
 
@@ -116,6 +119,7 @@ async def main() -> None:
         await run(cp)
         if args.stay:
             await asyncio.Event().wait()
+        await asyncio.sleep(args.linger)
 
 
 if __name__ == "__main__":
