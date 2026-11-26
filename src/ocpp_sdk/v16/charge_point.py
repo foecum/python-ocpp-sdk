@@ -9,6 +9,7 @@ Example:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import ssl
 from dataclasses import dataclass
@@ -63,6 +64,21 @@ class Config:
     remote_trigger: RemoteTriggerHandler | None = None
 
 
+class _OnlineSink:
+    """Wraps the endpoint to clear the online flag when its connection ends."""
+
+    def __init__(self, endpoint: Endpoint, online: asyncio.Event) -> None:
+        self._endpoint = endpoint
+        self._online = online
+
+    def feed(self, raw: str) -> None:
+        self._endpoint.feed(raw)
+
+    async def close(self) -> None:
+        self._online.clear()
+        await self._endpoint.close()
+
+
 class ChargePoint(ChargePointCalls):
     """An OCPP 1.6 Charge Point (the client side).
 
@@ -107,6 +123,7 @@ class ChargePoint(ChargePointCalls):
         self._response_timeout = response_timeout
         self._queue_size = queue_size
         self._endpoint: Endpoint | None = None
+        self._online = asyncio.Event()
         self._client = Client(
             url,
             self._on_connect,
@@ -130,6 +147,14 @@ class ChargePoint(ChargePointCalls):
     def connection(self) -> Connection | None:
         """The live transport connection, or ``None`` while offline."""
         return self._client.connection
+
+    async def wait_online(self) -> None:
+        """Wait until a connection is up (returns at once if it already is).
+
+        Unlike :meth:`wait_connected` this also works after a connection was lost and is
+        restored by reconnecting.
+        """
+        await self._online.wait()
 
     def start(self) -> None:
         """Start connecting in the background (idempotent)."""
@@ -167,7 +192,8 @@ class ChargePoint(ChargePointCalls):
             queue_size=self._queue_size,
         )
         self._endpoint = endpoint
-        return endpoint
+        self._online.set()
+        return _OnlineSink(endpoint, self._online)
 
     async def _call(
         self,

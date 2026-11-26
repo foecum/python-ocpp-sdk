@@ -475,3 +475,25 @@ def test_config_fields_match_the_generated_dispatch_tables() -> None:
 def test_url_without_charge_point_id_is_rejected() -> None:
     with pytest.raises(ValueError, match="charge point ID"):
         ChargePoint("ws://localhost:9000/")
+
+
+async def test_for_each_skips_a_station_that_left_meanwhile() -> None:
+    server = CSMS(Config(core=CsmsCoreHandler()), port=0, ping_interval=None)
+    await server.start()
+    visited: list[str] = []
+    try:
+        a = ChargePoint(url(server, "CP-A"), ping_interval=None, reconnect=None)
+        b = ChargePoint(url(server, "CP-B"), ping_interval=None, reconnect=None)
+        await a.__aenter__()
+        await b.__aenter__()
+
+        async def visit(session: Session) -> None:
+            visited.append(session.charge_point_id)
+            await b.close()
+            await until(lambda: server.charge_point("CP-B") is None)
+
+        await server.for_each(visit)
+        assert visited == ["CP-A"]
+        await a.close()
+    finally:
+        await server.shutdown(timeout=3)

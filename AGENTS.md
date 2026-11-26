@@ -420,7 +420,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 - [x] Firmware Management, Local Auth List Management, Reservation,
       Smart Charging, Remote Trigger wired into both sides; tests for each
-- [ ] 1.6 transaction message queue (`transaction_queue.py`) with in-memory and
+- [x] 1.6 transaction message queue (`transaction_queue.py`) with in-memory and
       file stores
 
 ### Phase 6 — 1.6 examples, docs, release
@@ -587,6 +587,14 @@ Record each decision as: date — decision — reason.
   test checks they match the dispatch tables. An action registered but not handled on a side,
   or a `None` field, answers `NotSupported`; a handler that returns no model is `InternalError`.
   `CSMS` adds `on_connect`/`on_disconnect` hooks, `charge_point(id)` and an async `for_each`.
+- 2026-11-26 — Transaction queue: `attempts` counts tries (default 3, minimum 1), the wait
+  after the n-th failure is `retry_interval` × n (default 60 s); the lost connection during a
+  delivery (`NotConnectedError`) is not a failure and the message is re-sent after reconnect.
+  `ChargePoint.wait_online()` (an event cleared when the connection ends) lets the queue wait
+  across reconnects. Persisted state is `{next, items, assigned}`; a `Transaction` handle only
+  exists in the process that queued the start (after a restart the queued messages still get the
+  assigned id through the persisted local id). A crash between a delivery and the save can send a
+  message twice (at-least-once delivery).
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 
