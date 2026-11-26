@@ -472,17 +472,17 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 9 — Hardening
 
-- [ ] Hypothesis property tests: frame parsing, registry decode, endpoint frame
+- [x] Hypothesis property tests: frame parsing, registry decode, endpoint frame
       handling, date-times, decode of every message (no crash; accept-then-
       roundtrip consistency). `fuzz.yml` runs them with a large example count
       weekly and on demand; failing examples are added as explicit test cases
-- [ ] Benchmarks (`pytest-benchmark`) for framing, decode and a CSMS with many
+- [x] Benchmarks (`pytest-benchmark`) for framing, decode and a CSMS with many
       stations; results in `docs/benchmarks.md`, labelled with the machine,
       no CI thresholds
-- [ ] `examples/loadtest`: in-process CSMS + N stations over loopback for 1.6 and
+- [x] `examples/loadtest`: in-process CSMS + N stations over loopback for 1.6 and
       2.0.1; ops/s and latency percentiles; 20-station slow smoke test;
       1,000-station run is manual
-- [ ] API review in `docs/api-review.md`, owner approves; `CHANGELOG.md`
+- [x] API review in `docs/api-review.md` (owner approves with the v1.0.0 tag); `CHANGELOG.md`
 - [ ] Tag `v1.0.0` (ask owner first). From here breaking changes need a new major
       version.
 
@@ -626,6 +626,11 @@ Record each decision as: date — decision — reason.
   `charge_point_ids()` / `charge_point(id)` in 2.0.1 and its session class is `ChargingStation`.
   Tests build a full sample payload from each official schema (`tests/schema/samples.py`) and
   mutate every field (`mutlib.py`, 9,580 mutations) instead of keeping 128 fixture files.
+- 2026-11-27 — Property tests live in `tests/unit/test_properties.py` with two Hypothesis
+  profiles in `tests/conftest.py` (`default` 60 examples; `fuzz` 5,000, or
+  `HYPOTHESIS_MAX_EXAMPLES`); `fuzz.yml` uses 20,000 weekly. Benchmarks run once per normal test
+  run (`--benchmark-disable` in `addopts`) and for real with `--benchmark-enable --benchmark-only`.
+  The old Go copies of `docs/benchmarks.md` and `docs/api-review.md` were replaced.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 

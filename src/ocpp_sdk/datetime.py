@@ -61,6 +61,7 @@ def format(value: datetime) -> str:
         raise ValidationError("naive datetime rejected: attach a time zone (e.g. tzinfo=UTC)")
     utc = value.astimezone(UTC)
     text = utc.strftime("%Y-%m-%dT%H:%M:%S")
-    if utc.microsecond:
-        text += f".{utc.microsecond // 1000:03d}"
+    millis = utc.microsecond // 1000
+    if millis:
+        text += f".{millis:03d}"
     return text + "Z"
