@@ -380,18 +380,18 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 2 — Transport
 
-- [ ] Pick the WebSocket library (`websockets` is the default choice; record
+- [x] Pick the WebSocket library (`websockets` is the default choice; record
       the decision and why in Decisions; owner approves)
-- [ ] Server: ID from URL, ID rules, connection registry, connect/disconnect
+- [x] Server: ID from URL, ID rules, connection registry, connect/disconnect
       callbacks, duplicate ID replaces old (1008)
-- [ ] Subprotocol negotiation by server preference; mismatch → close 1002
-- [ ] Client with OCPP-J §5.4 reconnect
-- [ ] Ping/pong keep-alive, max message size, compression off, binary rejected
-- [ ] Security profile 1: Basic Auth (charge point ID as username)
-- [ ] Security profile 2: TLS ≥ 1.2 + Basic Auth (`ssl.SSLContext`)
-- [ ] Security profile 3: mTLS with CN/O identity checks
-- [ ] Graceful shutdown, including the late-handshake case (close 1001)
-- [ ] Tests: handshake, mismatch, 401/403/404, reconnect timing, duplicate ID,
+- [x] Subprotocol negotiation by server preference; mismatch → close 1002
+- [x] Client with OCPP-J §5.4 reconnect
+- [x] Ping/pong keep-alive, max message size, compression off, binary rejected
+- [x] Security profile 1: Basic Auth (charge point ID as username)
+- [x] Security profile 2: TLS ≥ 1.2 + Basic Auth (`ssl.SSLContext`)
+- [x] Security profile 3: mTLS with CN/O identity checks
+- [x] Graceful shutdown, including the late-handshake case (close 1001)
+- [x] Tests: handshake, mismatch, 401/403/404, reconnect timing, duplicate ID,
       concurrent connections, shutdown
 
 ### Phase 3 — Generator and OCPP 1.6 models
@@ -538,6 +538,22 @@ Record each decision as: date — decision — reason.
   at most 1,001 calls can be in flight. Added `QueueFullError` to `errors`.
 - 2026-11-26 — pytest runs doctests (`--doctest-modules`) over `src` too, so the
   examples in docstrings stay correct.
+
+- 2026-11-26 — WebSocket library: `websockets` (new asyncio implementation, >=14),
+  approved by the owner: mature, supports subprotocol selection hooks, HTTP-level
+  `process_request` for 401/403/404, ping/pong, size limits and compression off.
+  Dev-only: `trustme` generates test certificates.
+- 2026-11-26 — Transport hands frames to a `FrameSink` protocol (`feed` + `close`),
+  which `ocppj.Endpoint` satisfies; added `transport/connection.py` for `Connection`
+  and `FrameSink`. `Server(on_connect)` / `Client(url, on_connect)` build the sink per
+  connection. Order of handshake checks: ID (404) → certificate identity (403) →
+  Basic auth (401).
+- 2026-11-26 — Graceful shutdown closes existing connections (1001) and waits for
+  their handlers *before* the listener stops, so a handshake that finishes during
+  shutdown reaches our handler and is closed with 1001 (websockets itself would
+  answer 503 once the listener is closed). `close_timeout` defaults to 5 s.
+- 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
+  enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 
 ## 9. Known gaps / skipped spec items
 

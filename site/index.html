@@ -16,7 +16,8 @@
   .muted { color:var(--muted); }
   table { border-collapse:collapse; width:100%; }
   th, td { text-align:left; padding:.5rem .75rem; border-bottom:1px solid var(--line); }
-  code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  pre { overflow-x:auto; padding:.75rem 1rem; border:1px solid var(--line); border-radius:6px; }
 </style>
 </head>
 <body>
@@ -29,14 +30,97 @@
 
   <h2>Status</h2>
   <table>
-    <thead><tr><th>Version</th><th>Status</th></tr></thead>
+    <thead><tr><th>Part</th><th>Status</th></tr></thead>
     <tbody>
-      <tr><td>OCPP 1.6J</td><td>planned</td></tr>
+      <tr><td>Core: errors, date-times, OCPP-J frames, registry, endpoint</td><td>done</td></tr>
+      <tr><td>WebSocket transport: server, client with reconnect, security profiles 1-3</td><td>done</td></tr>
+      <tr><td>OCPP 1.6J messages and high-level API</td><td>planned</td></tr>
       <tr><td>OCPP 1.6 security extension</td><td>planned</td></tr>
       <tr><td>OCPP 2.0.1</td><td>planned</td></tr>
       <tr><td>OCPP 2.1</td><td>planned</td></tr>
     </tbody>
   </table>
+  <p class="muted">No OCPP messages exist yet, so a station or CSMS cannot be built
+  on this release; the layers below are what those APIs will sit on.</p>
+
+  <h2>Transport</h2>
+  <p><code>ocpp_sdk.transport</code> is version-agnostic. A <code>Server</code> and a
+  <code>Client</code> hand every received text frame to a <em>sink</em> (anything with
+  <code>feed(raw)</code> and <code>async close()</code>; <code>ocppj.Endpoint</code> is one).</p>
+<pre>import asyncio
+
+from ocpp_sdk.transport import Client, Connection, Server
+
+
+class Printer:
+    def __init__(self, name: str) -&gt; None:
+        self.name = name
+
+    def feed(self, raw: str) -&gt; None:
+        print(self.name, "received", raw)
+
+    async def close(self) -&gt; None:
+        pass
+
+
+async def main() -&gt; None:
+    async def csms_connect(conn: Connection) -&gt; Printer:
+        return Printer("csms")
+
+    async def station_connect(conn: Connection) -&gt; Printer:
+        return Printer("station")
+
+    async with Server(csms_connect, port=0) as server:
+        url = f"ws://127.0.0.1:{server.port}/ocpp/CP001"
+        async with Client(url, station_connect) as client:
+            assert client.connection is not None
+            await client.connection.send('[2,"1","Heartbeat",{}]')
+            await asyncio.sleep(0.1)
+
+
+asyncio.run(main())</pre>
+  <ul>
+    <li>The charge point ID is the last URL path segment (1-48 characters, no <code>:</code> or <code>/</code>).
+    An invalid or unknown ID (<code>known_id</code>) answers HTTP 404.</li>
+    <li>The server picks the version by its own order of preference among the subprotocols the client
+    offers (<code>ocpp1.6</code>, <code>ocpp2.0.1</code>, <code>ocpp2.1</code>). With no common one the
+    handshake completes and the connection is closed with 1002.</li>
+    <li>A second connection with the same ID replaces the first (closed with 1008).</li>
+    <li>Compression is off, binary frames are refused (1003), ping every 30 s with a 10 s timeout,
+    messages up to 1 MiB (1009 above that).</li>
+    <li><code>Server.shutdown(timeout)</code> closes every connection with 1001, and a handshake that
+    finishes during shutdown is closed with 1001 too.</li>
+    <li><code>Client</code> reconnects as in OCPP-J section 5.4 (<code>Reconnect(wait_minimum=1,
+    random_range=2, repeat_times=6)</code>): the wait applies after every lost connection and failed
+    attempt, doubles up to <code>repeat_times</code> times, and resets after a successful connection.
+    A missing common subprotocol counts as a failed attempt. <code>reconnect=None</code> makes one attempt.</li>
+  </ul>
+
+  <h2>Security profiles</h2>
+  <table>
+    <thead><tr><th>Profile</th><th>Server</th><th>Client</th></tr></thead>
+    <tbody>
+      <tr><td>1: Basic auth</td><td><code>authenticate=fn(id, password)</code> (401 on failure)</td><td><code>password=...</code></td></tr>
+      <tr><td>2: TLS + Basic auth</td><td><code>ssl_context=server_ssl_context(cert, key)</code></td><td><code>ssl_context=client_ssl_context(cafile=...)</code></td></tr>
+      <tr><td>3: mutual TLS</td><td><code>server_ssl_context(..., client_ca=...)</code> and <code>check_certificate_identity=True</code>
+        (certificate CN must equal the ID, optionally O must contain <code>operator_name</code>; 403 otherwise)</td>
+        <td><code>client_ssl_context(cafile, certfile, keyfile)</code></td></tr>
+    </tbody>
+  </table>
+  <p>TLS 1.2 or newer, with ECDHE AES-GCM suites; TLS 1.0 and 1.1 are not supported.</p>
+
+  <h2>Core</h2>
+  <ul>
+    <li><code>ocpp_sdk.errors</code>: <code>OCPPError</code> and its subclasses <code>CallTimeoutError</code>,
+    <code>NotConnectedError</code>, <code>QueueFullError</code>, <code>ValidationError</code> and
+    <code>CallError</code>; code sets <code>ErrorCodeV16</code> (1.6 spelling) and <code>ErrorCodeV2</code> (2.0.1 and 2.1).</li>
+    <li><code>ocpp_sdk.datetime</code>: <code>parse</code> and <code>format</code> for every version.
+    Naive datetimes are rejected.</li>
+    <li><code>ocpp_sdk.ocppj</code>: <code>Endpoint</code> correlates calls, enforces timeouts (30 s from send),
+    sends one CALL at a time with a bounded queue of 1,000, answers handler errors with
+    <code>InternalError</code> (the exception text is never sent), and fails waiting calls with
+    <code>NotConnectedError</code> when the connection ends. Nothing is queued or retried while offline.</li>
+  </ul>
 
   <p>Source: <a href="https://github.com/foecum/python-ocpp-sdk">github.com/foecum/python-ocpp-sdk</a>.
   Sister project: <a href="https://github.com/foecum/go-ocpp-sdk">go-ocpp-sdk</a>.</p>

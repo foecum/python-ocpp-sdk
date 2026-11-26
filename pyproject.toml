@@ -23,7 +23,10 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
-dependencies = ["pydantic>=2,<3"]
+dependencies = [
+    "pydantic>=2,<3",
+    "websockets>=14",
+]
 
 [project.urls]
 Repository = "https://github.com/foecum/python-ocpp-sdk"
@@ -39,6 +42,7 @@ dev = [
     "pytest-benchmark",
     "jsonschema",
     "types-jsonschema",
+    "trustme>=1.2.1",
 ]
 
 [tool.hatch.version]
@@ -59,6 +63,9 @@ src = ["src", "tests", "tools"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["SIM117", "ASYNC109", "ASYNC110"]
 
 [tool.mypy]
 strict = true
