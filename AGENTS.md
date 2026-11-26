@@ -370,7 +370,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 - [x] `ocpp_sdk.datetime` (section 4 rules)
 - [x] `ocppj.frames`: CALL `[2, id, action, payload]`, CALLRESULT `[3, id, payload]`,
       CALLERROR `[4, id, code, description, details]`; message IDs ≤ 36 chars
-- [ ] `ocppj.registry`: action → request/response models per version
+- [x] `ocppj.registry`: action → request/response models per version
 - [ ] `ocppj.endpoint`: correlation, timeouts, one outstanding CALL per direction,
       bounded queue, cancellation frees the slot, incoming CALLs in own task,
       framing rules from section 4
