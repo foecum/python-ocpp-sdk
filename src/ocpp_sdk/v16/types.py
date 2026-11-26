@@ -8,9 +8,14 @@ from typing import Self
 from pydantic import Field, StrictBool, StrictInt, StrictStr, model_validator
 
 from ocpp_sdk.model import (
+    AbsoluteURI,
+    Base64,
     DateTime,
+    Hex,
+    HexBytes,
     OCPPModel,
     OneDecimal,
+    PemCertificate,
     rule_error,
 )
 
@@ -20,6 +25,9 @@ __all__ = [
     "AvailabilityStatus",
     "AvailabilityType",
     "CancelReservationStatus",
+    "CertificateHashData",
+    "CertificateSignedStatus",
+    "CertificateUse",
     "ChargePointErrorCode",
     "ChargePointStatus",
     "ChargingProfile",
@@ -33,12 +41,22 @@ __all__ = [
     "ClearChargingProfileStatus",
     "ConfigurationStatus",
     "DataTransferStatus",
+    "DeleteCertificateStatus",
     "DiagnosticsStatus",
+    "ExtendedMessageTrigger",
+    "Firmware",
     "FirmwareStatus",
+    "GenericStatus",
     "GetCompositeScheduleStatus",
+    "GetInstalledCertificateStatus",
+    "HashAlgorithm",
     "IdTagInfo",
+    "InstallCertificateStatus",
     "KeyValue",
     "Location",
+    "LogParameters",
+    "LogStatus",
+    "LogType",
     "Measurand",
     "MessageTrigger",
     "MeterValue",
@@ -52,11 +70,14 @@ __all__ = [
     "ResetStatus",
     "ResetType",
     "SampledValue",
+    "SignedFirmwareStatus",
+    "SignedUpdateFirmwareStatus",
     "TriggerMessageStatus",
     "UnitOfMeasure",
     "UnlockStatus",
     "UpdateStatus",
     "UpdateType",
+    "UploadLogStatus",
     "ValueFormat",
 ]
 
@@ -581,7 +602,7 @@ class MessageTrigger(StrEnum):
 
 
 class TriggerMessageStatus(StrEnum):
-    """The answer to TriggerMessage.
+    """The answer to TriggerMessage and ExtendedTriggerMessage.
 
     Example:
         >>> TriggerMessageStatus("Accepted").name
@@ -591,6 +612,191 @@ class TriggerMessageStatus(StrEnum):
     ACCEPTED = "Accepted"
     REJECTED = "Rejected"
     NOT_IMPLEMENTED = "NotImplemented"
+
+
+class CertificateSignedStatus(StrEnum):
+    """The answer to CertificateSigned.
+
+    Example:
+        >>> CertificateSignedStatus("Accepted").name
+        'ACCEPTED'
+    """
+
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+
+
+class HashAlgorithm(StrEnum):
+    """The hash algorithm of a CertificateHashData.
+
+    Example:
+        >>> HashAlgorithm("SHA256").name
+        'SHA256'
+    """
+
+    SHA256 = "SHA256"
+    SHA384 = "SHA384"
+    SHA512 = "SHA512"
+
+
+class DeleteCertificateStatus(StrEnum):
+    """The answer to DeleteCertificate.
+
+    Example:
+        >>> DeleteCertificateStatus("Accepted").name
+        'ACCEPTED'
+    """
+
+    ACCEPTED = "Accepted"
+    FAILED = "Failed"
+    NOT_FOUND = "NotFound"
+
+
+class ExtendedMessageTrigger(StrEnum):
+    """The message an ExtendedTriggerMessage asks for.
+
+    Example:
+        >>> ExtendedMessageTrigger("BootNotification").name
+        'BOOT_NOTIFICATION'
+    """
+
+    BOOT_NOTIFICATION = "BootNotification"
+    LOG_STATUS_NOTIFICATION = "LogStatusNotification"
+    FIRMWARE_STATUS_NOTIFICATION = "FirmwareStatusNotification"
+    HEARTBEAT = "Heartbeat"
+    METER_VALUES = "MeterValues"
+    SIGN_CHARGE_POINT_CERTIFICATE = "SignChargePointCertificate"
+    STATUS_NOTIFICATION = "StatusNotification"
+
+
+class CertificateUse(StrEnum):
+    """The kind of root certificate.
+
+    Example:
+        >>> CertificateUse("CentralSystemRootCertificate").name
+        'CENTRAL_SYSTEM_ROOT_CERTIFICATE'
+    """
+
+    CENTRAL_SYSTEM_ROOT_CERTIFICATE = "CentralSystemRootCertificate"
+    MANUFACTURER_ROOT_CERTIFICATE = "ManufacturerRootCertificate"
+
+
+class GetInstalledCertificateStatus(StrEnum):
+    """The answer to GetInstalledCertificateIds.
+
+    Example:
+        >>> GetInstalledCertificateStatus("Accepted").name
+        'ACCEPTED'
+    """
+
+    ACCEPTED = "Accepted"
+    NOT_FOUND = "NotFound"
+
+
+class LogType(StrEnum):
+    """The kind of log to upload.
+
+    Example:
+        >>> LogType("DiagnosticsLog").name
+        'DIAGNOSTICS_LOG'
+    """
+
+    DIAGNOSTICS_LOG = "DiagnosticsLog"
+    SECURITY_LOG = "SecurityLog"
+
+
+class LogStatus(StrEnum):
+    """The answer to GetLog.
+
+    Example:
+        >>> LogStatus("Accepted").name
+        'ACCEPTED'
+    """
+
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+    ACCEPTED_CANCELED = "AcceptedCanceled"
+
+
+class InstallCertificateStatus(StrEnum):
+    """The answer to InstallCertificate.
+
+    Example:
+        >>> InstallCertificateStatus("Accepted").name
+        'ACCEPTED'
+    """
+
+    ACCEPTED = "Accepted"
+    FAILED = "Failed"
+    REJECTED = "Rejected"
+
+
+class UploadLogStatus(StrEnum):
+    """The progress of a log upload.
+
+    Example:
+        >>> UploadLogStatus("BadMessage").name
+        'BAD_MESSAGE'
+    """
+
+    BAD_MESSAGE = "BadMessage"
+    IDLE = "Idle"
+    NOT_SUPPORTED_OPERATION = "NotSupportedOperation"
+    PERMISSION_DENIED = "PermissionDenied"
+    UPLOADED = "Uploaded"
+    UPLOAD_FAILURE = "UploadFailure"
+    UPLOADING = "Uploading"
+
+
+class GenericStatus(StrEnum):
+    """The answer to SignCertificate.
+
+    Example:
+        >>> GenericStatus("Accepted").name
+        'ACCEPTED'
+    """
+
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+
+
+class SignedFirmwareStatus(StrEnum):
+    """The progress of a signed firmware update.
+
+    Example:
+        >>> SignedFirmwareStatus("Downloaded").name
+        'DOWNLOADED'
+    """
+
+    DOWNLOADED = "Downloaded"
+    DOWNLOAD_FAILED = "DownloadFailed"
+    DOWNLOADING = "Downloading"
+    DOWNLOAD_SCHEDULED = "DownloadScheduled"
+    DOWNLOAD_PAUSED = "DownloadPaused"
+    IDLE = "Idle"
+    INSTALLATION_FAILED = "InstallationFailed"
+    INSTALLING = "Installing"
+    INSTALLED = "Installed"
+    INSTALL_REBOOTING = "InstallRebooting"
+    INSTALL_SCHEDULED = "InstallScheduled"
+    INSTALL_VERIFICATION_FAILED = "InstallVerificationFailed"
+    INVALID_SIGNATURE = "InvalidSignature"
+    SIGNATURE_VERIFIED = "SignatureVerified"
+
+
+class SignedUpdateFirmwareStatus(StrEnum):
+    """The answer to SignedUpdateFirmware.
+
+    Example:
+        >>> SignedUpdateFirmwareStatus("Accepted").name
+        'ACCEPTED'
+    """
+
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+    ACCEPTED_CANCELED = "AcceptedCanceled"
+    INVALID_CERTIFICATE = "InvalidCertificate"
+    REVOKED_CERTIFICATE = "RevokedCertificate"
 
 
 class IdTagInfo(OCPPModel):
@@ -791,3 +997,82 @@ class AuthorizationData(OCPPModel):
 
     id_tag: StrictStr = Field(min_length=1, max_length=20)
     id_tag_info: IdTagInfo | None = Field(default=None)
+
+
+class CertificateHashData(OCPPModel):
+    """Identifies an installed certificate by hashes of its issuer and its serial number.
+
+    Attributes:
+        hash_algorithm: Required. A ``HashAlgorithm``.
+        issuer_name_hash: Required. At most 128 characters.
+        issuer_key_hash: Required. At most 128 characters.
+        serial_number: Required. At most 40 characters.
+
+    Example:
+        >>> value = CertificateHashData.model_validate({
+        ...     "hashAlgorithm": "SHA256",
+        ...     "issuerNameHash": "0A1B",
+        ...     "issuerKeyHash": "0A1B",
+        ...     "serialNumber": "0A1B",
+        ... })
+        >>> type(value).__name__
+        'CertificateHashData'
+    """
+
+    hash_algorithm: HashAlgorithm
+    issuer_name_hash: HexBytes = Field(min_length=1, max_length=128)
+    issuer_key_hash: HexBytes = Field(min_length=1, max_length=128)
+    serial_number: Hex = Field(min_length=1, max_length=40)
+
+
+class LogParameters(OCPPModel):
+    """Which log to upload and where.
+
+    Attributes:
+        remote_location: Required. At most 512 characters.
+        oldest_timestamp: Optional. A timestamp.
+        latest_timestamp: Optional. A timestamp.
+
+    Example:
+        >>> value = LogParameters.model_validate({
+        ...     "remoteLocation": "https://example.com/f",
+        ... })
+        >>> type(value).__name__
+        'LogParameters'
+    """
+
+    remote_location: AbsoluteURI = Field(min_length=1, max_length=512)
+    oldest_timestamp: DateTime | None = Field(default=None)
+    latest_timestamp: DateTime | None = Field(default=None)
+
+
+class Firmware(OCPPModel):
+    """The signed firmware of a SignedUpdateFirmware.
+
+    Attributes:
+        location: Required. At most 512 characters.
+        retrieve_date_time: Required. A timestamp.
+        install_date_time: Optional. A timestamp.
+        signing_certificate: Required. At most 5500 characters.
+        signature: Required. At most 800 characters.
+
+    Example:
+        >>> value = Firmware.model_validate({
+        ...     "location": "https://example.com/f",
+        ...     "retrieveDateTime": "2025-01-02T03:04:05Z",
+        ...     "signingCertificate": (
+        ...         "-----BEGIN CERTIFICATE-----\\n"
+        ...         "MIIB\\n"
+        ...         "-----END CERTIFICATE-----"
+        ...     ),
+        ...     "signature": "AAAA",
+        ... })
+        >>> type(value).__name__
+        'Firmware'
+    """
+
+    location: AbsoluteURI = Field(min_length=1, max_length=512)
+    retrieve_date_time: DateTime
+    install_date_time: DateTime | None = Field(default=None)
+    signing_certificate: PemCertificate = Field(min_length=1, max_length=5500)
+    signature: Base64 = Field(min_length=1, max_length=800)

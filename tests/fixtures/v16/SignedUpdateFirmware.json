@@ -1,0 +1,17 @@
+{
+  "request": {
+    "retries": 2,
+    "retryInterval": 30,
+    "requestId": 9,
+    "firmware": {
+      "location": "https://files.example.com/fw.bin",
+      "retrieveDateTime": "2025-03-14T09:26:53Z",
+      "installDateTime": "2025-03-14T12:00:00Z",
+      "signingCertificate": "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIUQ0hBUkdFUE9JTlQ=\n-----END CERTIFICATE-----\n",
+      "signature": "c2lnbmF0dXJl"
+    }
+  },
+  "response": {
+    "status": "InvalidCertificate"
+  }
+}

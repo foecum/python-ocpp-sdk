@@ -1,0 +1,8 @@
+{
+  "request": {
+    "certificateChain": "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIUQ0hBUkdFUE9JTlQ=\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIUQ0hBUkdFUE9JTlQ=\n-----END CERTIFICATE-----\n"
+  },
+  "response": {
+    "status": "Rejected"
+  }
+}

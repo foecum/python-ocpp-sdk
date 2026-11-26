@@ -17,6 +17,10 @@ Example:
 
 from __future__ import annotations
 
+import base64
+import binascii
+import re
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Annotated, Any
 from urllib.parse import urlsplit
@@ -38,10 +42,16 @@ from ocpp_sdk.errors import ValidationError
 
 __all__ = [
     "AbsoluteURI",
+    "Base64",
     "DateTime",
+    "Hex",
+    "HexBytes",
     "Number",
     "OCPPModel",
     "OneDecimal",
+    "PemCertificate",
+    "PemCertificates",
+    "PemCsr",
     "needed_error",
     "rule_error",
 ]
@@ -122,3 +132,79 @@ def _check_one_decimal(value: float) -> float:
 
 OneDecimal = Annotated[Number, AfterValidator(_check_one_decimal)]
 """A number with at most one fractional digit, as charging limits require."""
+
+
+_PEM_BLOCK = re.compile(r"-----BEGIN ([A-Z0-9 ]+)-----(.*?)-----END \1-----", re.DOTALL)
+_PEM_BODY = re.compile(r"[A-Za-z0-9+/=\s]*")
+
+
+def _pem(types: tuple[str, ...], max_blocks: int | None) -> Callable[[str], str]:
+    """A check for text made of PEM blocks of the given types (the contents are not parsed)."""
+
+    def check(value: str) -> str:
+        blocks = list(_PEM_BLOCK.finditer(value))
+        if not blocks:
+            raise PydanticCustomError("ocpp_rule", "must be PEM encoded")
+        for block in blocks:
+            if block.group(1) not in types:
+                raise PydanticCustomError(
+                    "ocpp_rule",
+                    "unexpected PEM block {kind}, want {want}",
+                    {"kind": block.group(1), "want": " or ".join(types)},
+                )
+            if not _PEM_BODY.fullmatch(block.group(2)):
+                raise PydanticCustomError("ocpp_rule", "a PEM block is not Base64 text")
+        if max_blocks is not None and len(blocks) > max_blocks:
+            raise PydanticCustomError(
+                "ocpp_rule",
+                "contains {n} PEM blocks, at most {max} allowed",
+                {"n": len(blocks), "max": max_blocks},
+            )
+        if _PEM_BLOCK.sub("", value).strip():
+            raise PydanticCustomError("ocpp_rule", "contains data outside the PEM blocks")
+        return value
+
+    return check
+
+
+PemCertificate = Annotated[str, Strict(), AfterValidator(_pem(("CERTIFICATE",), 1))]
+"""One PEM encoded X.509 certificate."""
+
+PemCertificates = Annotated[str, Strict(), AfterValidator(_pem(("CERTIFICATE",), None))]
+"""One or more PEM encoded X.509 certificates (a chain)."""
+
+PemCsr = Annotated[
+    str, Strict(), AfterValidator(_pem(("CERTIFICATE REQUEST", "NEW CERTIFICATE REQUEST"), 1))
+]
+"""One PEM encoded PKCS#10 certificate signing request."""
+
+
+def _check_hex(value: str) -> str:
+    if not re.fullmatch(r"[0-9a-fA-F]+", value):
+        raise PydanticCustomError("ocpp_rule", "must be hexadecimal")
+    return value
+
+
+def _check_hex_bytes(value: str) -> str:
+    _check_hex(value)
+    if len(value) % 2:
+        raise PydanticCustomError("ocpp_rule", "must have two hexadecimal digits per byte")
+    return value
+
+
+def _check_base64(value: str) -> str:
+    try:
+        base64.b64decode(value, validate=True)
+    except (binascii.Error, ValueError):
+        raise PydanticCustomError("ocpp_rule", "must be Base64 encoded") from None
+    return value
+
+
+Hex = Annotated[str, Strict(), AfterValidator(_check_hex)]
+"""A hexadecimal string."""
+
+HexBytes = Annotated[str, Strict(), AfterValidator(_check_hex_bytes)]
+"""A hexadecimal string with two digits per byte."""
+
+Base64 = Annotated[str, Strict(), AfterValidator(_check_base64)]
+"""A Base64 (standard alphabet, padded) string."""

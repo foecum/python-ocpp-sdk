@@ -9,11 +9,11 @@ security profiles 1-3) and the OCPP 1.6 message models (generated from the offic
 schemas) and the high-level OCPP 1.6 `ChargePoint` and `CSMS` classes (typed calls,
 handlers per feature profile) are done, so 1.6 stations and Central Systems can be
 built, with an opt-in transaction message queue (in-memory or file-backed) and
-examples in `examples/v16`. The security extension, 2.0.1 and 2.1 are not done. See the documentation site (`site/index.html`).
+examples in `examples/v16`. The 1.6 security extension messages and AuthorizationKey helpers are in too. 2.0.1 and 2.1 are not done. See the documentation site (`site/index.html`).
 
 | Version   | Status  |
 |-----------|---------|
-| OCPP 1.6J | models, high-level API, transaction queue, examples and go-ocpp-sdk interop tests done; security extension planned |
+| OCPP 1.6J | models, high-level API, transaction queue, examples, go-ocpp-sdk interop tests and the security extension done |
 | OCPP 2.0.1 | planned |
 | OCPP 2.1  | planned |
 

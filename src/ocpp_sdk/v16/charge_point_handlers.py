@@ -66,6 +66,30 @@ from ocpp_sdk.v16.reservation import (
     ReserveNowConfirmation,
     ReserveNowRequest,
 )
+from ocpp_sdk.v16.security import (
+    CertificateSignedConfirmation,
+    CertificateSignedRequest,
+    DeleteCertificateConfirmation,
+    DeleteCertificateRequest,
+    ExtendedTriggerMessageConfirmation,
+    ExtendedTriggerMessageRequest,
+    GetInstalledCertificateIdsConfirmation,
+    GetInstalledCertificateIdsRequest,
+    GetLogConfirmation,
+    GetLogRequest,
+    InstallCertificateConfirmation,
+    InstallCertificateRequest,
+    LogStatusNotificationConfirmation,
+    LogStatusNotificationRequest,
+    SecurityEventNotificationConfirmation,
+    SecurityEventNotificationRequest,
+    SignCertificateConfirmation,
+    SignCertificateRequest,
+    SignedFirmwareStatusNotificationConfirmation,
+    SignedFirmwareStatusNotificationRequest,
+    SignedUpdateFirmwareConfirmation,
+    SignedUpdateFirmwareRequest,
+)
 from ocpp_sdk.v16.smartcharging import (
     ClearChargingProfileConfirmation,
     ClearChargingProfileRequest,
@@ -83,12 +107,14 @@ __all__ = [
     "LocalAuthListHandler",
     "RemoteTriggerHandler",
     "ReservationHandler",
+    "SecurityHandler",
     "SmartChargingHandler",
     "UnimplementedCoreHandler",
     "UnimplementedFirmwareHandler",
     "UnimplementedLocalAuthListHandler",
     "UnimplementedRemoteTriggerHandler",
     "UnimplementedReservationHandler",
+    "UnimplementedSecurityHandler",
     "UnimplementedSmartChargingHandler",
 ]
 
@@ -473,6 +499,116 @@ class UnimplementedRemoteTriggerHandler(RemoteTriggerHandler):
         raise CallError(ErrorCodeV16.NOT_SUPPORTED, "TriggerMessage is not supported")
 
 
+class SecurityHandler(Protocol):
+    """Handles the Security messages that the Charge Point
+    receives from the Central System.
+
+    Methods may be sync or async. Raise ``ocpp_sdk.errors.CallError`` to answer with a
+    specific CALLERROR; any other exception is answered with ``InternalError``.
+
+    Example:
+        >>> SecurityHandler in UnimplementedSecurityHandler.__mro__
+        True
+    """
+
+    def on_certificate_signed(
+        self, request: CertificateSignedRequest
+    ) -> CertificateSignedConfirmation | Awaitable[CertificateSignedConfirmation]:
+        """Delivers the certificate chain the CA signed for a SignCertificate."""
+        ...
+
+    def on_delete_certificate(
+        self, request: DeleteCertificateRequest
+    ) -> DeleteCertificateConfirmation | Awaitable[DeleteCertificateConfirmation]:
+        """Asks the Charge Point to delete an installed certificate."""
+        ...
+
+    def on_extended_trigger_message(
+        self, request: ExtendedTriggerMessageRequest
+    ) -> ExtendedTriggerMessageConfirmation | Awaitable[ExtendedTriggerMessageConfirmation]:
+        """Asks the Charge Point to send a message, including the new ones."""
+        ...
+
+    def on_get_installed_certificate_ids(
+        self, request: GetInstalledCertificateIdsRequest
+    ) -> GetInstalledCertificateIdsConfirmation | Awaitable[GetInstalledCertificateIdsConfirmation]:
+        """Asks which certificates of a kind are installed."""
+        ...
+
+    def on_get_log(
+        self, request: GetLogRequest
+    ) -> GetLogConfirmation | Awaitable[GetLogConfirmation]:
+        """Asks the Charge Point to upload a diagnostics or security log."""
+        ...
+
+    def on_install_certificate(
+        self, request: InstallCertificateRequest
+    ) -> InstallCertificateConfirmation | Awaitable[InstallCertificateConfirmation]:
+        """Asks the Charge Point to install a root certificate."""
+        ...
+
+    def on_signed_update_firmware(
+        self, request: SignedUpdateFirmwareRequest
+    ) -> SignedUpdateFirmwareConfirmation | Awaitable[SignedUpdateFirmwareConfirmation]:
+        """Asks the Charge Point to install firmware with a signature."""
+        ...
+
+
+class UnimplementedSecurityHandler(SecurityHandler):
+    """Answers every Security message with ``NotSupported``.
+
+    Override the messages you support.
+
+    Example:
+        >>> class MyHandler(UnimplementedSecurityHandler):
+        ...     pass
+        >>> SecurityHandler in MyHandler.__mro__
+        True
+    """
+
+    def on_certificate_signed(
+        self, request: CertificateSignedRequest
+    ) -> CertificateSignedConfirmation | Awaitable[CertificateSignedConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "CertificateSigned is not supported")
+
+    def on_delete_certificate(
+        self, request: DeleteCertificateRequest
+    ) -> DeleteCertificateConfirmation | Awaitable[DeleteCertificateConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "DeleteCertificate is not supported")
+
+    def on_extended_trigger_message(
+        self, request: ExtendedTriggerMessageRequest
+    ) -> ExtendedTriggerMessageConfirmation | Awaitable[ExtendedTriggerMessageConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "ExtendedTriggerMessage is not supported")
+
+    def on_get_installed_certificate_ids(
+        self, request: GetInstalledCertificateIdsRequest
+    ) -> GetInstalledCertificateIdsConfirmation | Awaitable[GetInstalledCertificateIdsConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "GetInstalledCertificateIds is not supported")
+
+    def on_get_log(
+        self, request: GetLogRequest
+    ) -> GetLogConfirmation | Awaitable[GetLogConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "GetLog is not supported")
+
+    def on_install_certificate(
+        self, request: InstallCertificateRequest
+    ) -> InstallCertificateConfirmation | Awaitable[InstallCertificateConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "InstallCertificate is not supported")
+
+    def on_signed_update_firmware(
+        self, request: SignedUpdateFirmwareRequest
+    ) -> SignedUpdateFirmwareConfirmation | Awaitable[SignedUpdateFirmwareConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "SignedUpdateFirmware is not supported")
+
+
 class ChargePointCalls:
     """Typed methods for the messages a Charge Point sends."""
 
@@ -711,6 +847,101 @@ class ChargePointCalls:
         """
         return cast(FirmwareStatusNotificationConfirmation, await self._call(request, timeout))
 
+    async def log_status_notification(
+        self, request: LogStatusNotificationRequest, *, timeout: float | None = None
+    ) -> LogStatusNotificationConfirmation:
+        """Sends LogStatusNotification: reports the progress of a log upload.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.log_status_notification(request)  # doctest: +SKIP
+        """
+        return cast(LogStatusNotificationConfirmation, await self._call(request, timeout))
+
+    async def security_event_notification(
+        self, request: SecurityEventNotificationRequest, *, timeout: float | None = None
+    ) -> SecurityEventNotificationConfirmation:
+        """Sends SecurityEventNotification: reports a security event to the Central System.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.security_event_notification(request)  # doctest: +SKIP
+        """
+        return cast(SecurityEventNotificationConfirmation, await self._call(request, timeout))
+
+    async def sign_certificate(
+        self, request: SignCertificateRequest, *, timeout: float | None = None
+    ) -> SignCertificateConfirmation:
+        """Sends SignCertificate: asks the Central System to have a certificate signed (CSR).
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.sign_certificate(request)  # doctest: +SKIP
+        """
+        return cast(SignCertificateConfirmation, await self._call(request, timeout))
+
+    async def signed_firmware_status_notification(
+        self, request: SignedFirmwareStatusNotificationRequest, *, timeout: float | None = None
+    ) -> SignedFirmwareStatusNotificationConfirmation:
+        """Sends SignedFirmwareStatusNotification: reports the progress of a signed firmware
+        update.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.signed_firmware_status_notification(request)  # doctest: +SKIP
+        """
+        return cast(
+            SignedFirmwareStatusNotificationConfirmation, await self._call(request, timeout)
+        )
+
 
 DISPATCH: dict[str, tuple[str, str]] = {
     "ChangeAvailability": ("core", "on_change_availability"),
@@ -732,5 +963,12 @@ DISPATCH: dict[str, tuple[str, str]] = {
     "GetCompositeSchedule": ("smart_charging", "on_get_composite_schedule"),
     "SetChargingProfile": ("smart_charging", "on_set_charging_profile"),
     "TriggerMessage": ("remote_trigger", "on_trigger_message"),
+    "CertificateSigned": ("security", "on_certificate_signed"),
+    "DeleteCertificate": ("security", "on_delete_certificate"),
+    "ExtendedTriggerMessage": ("security", "on_extended_trigger_message"),
+    "GetInstalledCertificateIds": ("security", "on_get_installed_certificate_ids"),
+    "GetLog": ("security", "on_get_log"),
+    "InstallCertificate": ("security", "on_install_certificate"),
+    "SignedUpdateFirmware": ("security", "on_signed_update_firmware"),
 }
 """Action -> (Config field, handler method) for the messages this side receives."""

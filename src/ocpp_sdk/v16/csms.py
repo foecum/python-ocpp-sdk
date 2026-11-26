@@ -29,6 +29,7 @@ from ocpp_sdk.v16.csms_handlers import (
     CoreHandler,
     CSMSCalls,
     FirmwareHandler,
+    SecurityHandler,
     StationCalls,
 )
 from ocpp_sdk.versions import Version
@@ -44,7 +45,7 @@ _MaybeAwaitable = Awaitable[object] | object
 class Config:
     """The handlers of the messages a Central System receives, one per feature profile.
 
-    A profile left as ``None`` is answered ``NotSupported``. Only Core and Firmware Management
+    A profile left as ``None`` is answered ``NotSupported``. Core, Firmware Management and Security
     have messages a Central System receives. Handlers get the :class:`ChargePoint` session first.
 
     Example:
@@ -55,6 +56,7 @@ class Config:
 
     core: CoreHandler | None = None
     firmware: FirmwareHandler | None = None
+    security: SecurityHandler | None = None
 
 
 class ChargePoint(StationCalls):

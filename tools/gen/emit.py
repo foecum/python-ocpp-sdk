@@ -42,6 +42,9 @@ def _render(node: Sample, indent: int, lead: int = 0, width: int = 66) -> str:
     if indent + lead + len(flat) <= width:
         return flat
     pad = " " * (indent + 4)
+    if kind == "parts":
+        inner = "".join(f"{pad}{part}\n" for part in node[1])
+        return f"(\n{inner}{' ' * indent})"
     if kind == "dict":
         inner = "".join(f'{pad}"{k}": {_render(v, indent + 4, len(k) + 4)},\n' for k, v in node[1])
         return f"{{\n{inner}{' ' * indent}}}"
@@ -54,9 +57,27 @@ def _flat(node: Sample) -> str:
     kind = node[0]
     if kind == "lit":
         return str(node[1])
+    if kind == "parts":
+        return " ".join(node[1])
     if kind == "dict":
         return "{" + ", ".join(f'"{k}": {_flat(v)}' for k, v in node[1]) + "}"
     return f"[{', '.join(_flat(v) for v in node[1])}]"
+
+
+def _pem(kind: str) -> Sample:
+    return ("parts", [f'"-----BEGIN {kind}-----\\n"', '"MIIB\\n"', f'"-----END {kind}-----"'])
+
+
+#: Valid sample values for the string types of ``ocpp_sdk.model``.
+_TYPE_SAMPLES: dict[str, Sample] = {
+    "PemCertificate": _pem("CERTIFICATE"),
+    "PemCertificates": _pem("CERTIFICATE"),
+    "PemCsr": _pem("CERTIFICATE REQUEST"),
+    "Base64": ("lit", '"AAAA"'),
+    "Hex": ("lit", '"0A1B"'),
+    "HexBytes": ("lit", '"0A1B"'),
+    "AbsoluteURI": ("lit", '"https://example.com/f"'),
+}
 
 
 @dataclass
@@ -74,6 +95,8 @@ class _Ctx:
         raise KeyError(name)
 
     def sample(self, f: FieldIR) -> Sample:
+        if f.type_name in _TYPE_SAMPLES:
+            return _TYPE_SAMPLES[f.type_name]
         if f.kind == "str":
             return ("lit", '"x"')
         if f.kind == "uri":
@@ -103,6 +126,8 @@ class _Ctx:
 
 
 def _scalar(f: FieldIR) -> str:
+    if f.type_name:
+        return f.type_name
     return {
         "str": "StrictStr",
         "uri": "AbsoluteURI",
@@ -116,7 +141,7 @@ def _scalar(f: FieldIR) -> str:
 def _item_type(f: FieldIR) -> str:
     base = _scalar(f)
     if f.kind == "str" and f.max_length is not None:
-        return f"Annotated[StrictStr, StringConstraints(max_length={f.max_length})]"
+        return f"Annotated[{base}, StringConstraints(max_length={f.max_length})]"
     return base
 
 
@@ -181,7 +206,7 @@ def _doc(summary: str, fields: list[FieldIR], example: list[str], indent: str = 
         lines += ["", "Attributes:"]
         lines += [f"    {_field_doc(f)}" for f in fields]
     lines += ["", "Example:", *(f"    {e}" for e in example)]
-    body = "\n".join(f"{indent}{ln}".rstrip() for ln in lines)
+    body = "\n".join(f"{indent}{ln}".rstrip().replace("\\", "\\\\") for ln in lines)
     return f'{indent}"""{body.lstrip()}\n{indent}"""'
 
 
@@ -241,7 +266,8 @@ from typing import Annotated, ClassVar, Self
 
 from pydantic import Field, StrictBool, StrictInt, StrictStr, StringConstraints, model_validator
 
-from ocpp_sdk.model import AbsoluteURI, DateTime, Number, OCPPModel, OneDecimal
+from ocpp_sdk.model import AbsoluteURI, Base64, DateTime, Hex, HexBytes, Number, OCPPModel
+from ocpp_sdk.model import OneDecimal, PemCertificate, PemCertificates, PemCsr
 from ocpp_sdk.model import needed_error, rule_error
 """
 
@@ -281,16 +307,19 @@ def render_module(profile: Profile, ir: SchemaIR, module: str, title: str) -> st
     classes = [c for m in messages for c in (m.request, m.response)]
     shared = ", ".join(_names(profile, ir))
     pairs = ",\n    ".join(f"({m.request.name}, {m.response.name})" for m in messages)
+    exported = ["MESSAGES", *(c.name for c in classes), *_event_names(profile, module)]
     parts = [
         HEADER,
         f'"""OCPP {profile.version} {title} messages."""\n',
         _IMPORTS,
         f"from {_package(profile)}.types import {shared}\n",
-        f"__all__ = {_sorted_all(['MESSAGES', *(c.name for c in classes)])}\n",
+        f"__all__ = {_sorted_all(exported)}\n",
     ]
     for m in messages:
         parts.append(_model_class(m.request, ctx, message=True) + "\n")
         parts.append(_model_class(m.response, ctx, message=True) + "\n")
+    if module == "security" and profile.security_events:
+        parts.append(_security_events(profile))
     parts.append(
         "MESSAGES: tuple[tuple[type[OCPPModel], type[OCPPModel]], ...] = (\n"
         f"    {pairs},\n)\n"
@@ -301,3 +330,53 @@ def render_module(profile: Profile, ir: SchemaIR, module: str, title: str) -> st
 
 def _package(profile: Profile) -> str:
     return f"ocpp_sdk.{profile.package}"
+
+
+def _event_names(profile: Profile, module: str) -> list[str]:
+    if module == "security" and profile.security_events:
+        return ["SecurityEvent", "is_critical_event", "is_known_event"]
+    return []
+
+
+def _security_events(profile: Profile) -> str:
+    members = [f'    {member_name(name, {})} = "{name}"' for name in profile.security_events]
+    critical = ", ".join(
+        f"SecurityEvent.{member_name(n, {})}" for n, c in profile.security_events.items() if c
+    )
+    return f'''class SecurityEvent(StrEnum):
+    """The security events of the whitepaper, for ``SecurityEventNotificationRequest.type``.
+
+    The field itself is an open string: a vendor may send other types.
+
+    Example:
+        >>> SecurityEvent("StartupOfTheDevice").name
+        'STARTUP_OF_THE_DEVICE'
+    """
+
+{chr(10).join(members)}
+
+
+_CRITICAL = frozenset({{{critical}}})
+
+
+def is_known_event(event_type: str) -> bool:
+    """Whether ``event_type`` is a security event of the whitepaper.
+
+    Example:
+        >>> is_known_event("ResetOrReboot"), is_known_event("VendorThing")
+        (True, False)
+    """
+    return event_type in SecurityEvent.__members__.values()
+
+
+def is_critical_event(event_type: str) -> bool:
+    """Whether the whitepaper calls ``event_type`` critical (to be pushed to the Central System).
+
+    Unknown event types are not critical.
+
+    Example:
+        >>> is_critical_event("StartupOfTheDevice"), is_critical_event("InvalidMessages")
+        (True, False)
+    """
+    return event_type in _CRITICAL
+'''

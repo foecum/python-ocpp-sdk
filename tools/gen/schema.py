@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 _IGNORED = {"$schema", "id", "$id", "title", "additionalProperties", "additionalItems"}
 _NODE_KEYS = {"type", "properties", "required", "items", "enum", "maxLength", "format"}
+_NODE_KEYS |= {"$ref", "definitions", "javaType"}
 _NODE_KEYS |= {"multipleOf", "minItems", "additionalProperties", "additionalItems"}
 
 
@@ -39,6 +40,7 @@ class FieldIR:
     min_items: int | None = None
     ge: int | None = None
     non_empty: bool = False  # a required string that must not be empty
+    type_name: str | None = None  # a type from ocpp_sdk.model replacing StrictStr
 
 
 @dataclass
@@ -101,6 +103,8 @@ class _Builder:
         self.enum_at = {loc: n for n, t in profile.enums.items() for loc in t.locations}
         self.seen_nodes: dict[str, str] = {}  # class name -> canonical schema
         self.used_locations: set[str] = set()
+        self.stem = ""
+        self.defs: dict[str, Any] = {}
 
     # -- nodes -------------------------------------------------------------
 
@@ -110,7 +114,25 @@ class _Builder:
                 raise GenError(f"{loc}: unsupported schema keyword {key!r}")
 
     def _canonical(self, node: dict[str, Any]) -> str:
-        return json.dumps(node, sort_keys=True)
+        """The node as JSON; ``$ref`` is resolved and ``javaType`` (a Java hint) dropped."""
+
+        def clean(n: Any) -> Any:
+            if isinstance(n, dict):
+                if "$ref" in n:
+                    return clean(self._resolve(n["$ref"])[1])
+                return {k: clean(v) for k, v in n.items() if k not in ("javaType", "definitions")}
+            if isinstance(n, list):
+                return [clean(x) for x in n]
+            return n
+
+        return json.dumps(clean(node), sort_keys=True)
+
+    def _resolve(self, ref: str) -> tuple[str, dict[str, Any]]:
+        prefix = "#/definitions/"
+        if not ref.startswith(prefix) or ref[len(prefix) :] not in self.defs:
+            raise GenError(f"{self.stem}: unresolvable $ref {ref!r}")
+        name = ref[len(prefix) :]
+        return name, self.defs[name]
 
     def _remember(self, name: str, node: dict[str, Any], loc: str) -> bool:
         """Record that ``loc`` is class ``name``; ``True`` if it is new."""
@@ -163,12 +185,20 @@ class _Builder:
         if key in self.p.array_min:
             if f.kind != "array":
                 raise GenError(f"{key}: array_min on a non-array")
-            f.min_items = max(f.min_items or 0, self.p.array_min[key])
+            f.min_items = self.p.array_min[key] or None  # a table entry overrides the schema
+        if key in self.p.field_types:
+            target = f.item if f.kind == "array" and f.item else f
+            if target.kind != "str":
+                raise GenError(f"{key}: field_types on a non-string")
+            target.type_name = self.p.field_types[key]
         if f.kind == "str" and required and key not in self.p.empty_allowed:
             f.non_empty = True
         return f
 
     def value(self, spec: dict[str, Any], loc: str, owner: str, wire: str) -> FieldIR:
+        if "$ref" in spec:
+            name, spec = self._resolve(spec["$ref"])
+            loc = f"{self.stem}#{name}"
         self._check_keys(spec, loc)
         kind = spec.get("type")
         if "enum" in spec:
@@ -211,7 +241,9 @@ def load(profile: Profile) -> SchemaIR:
             for node, stem in ((req_node, action), (res_node, f"{action}Response")):
                 if node.get("type") != "object":
                     raise GenError(f"{stem}: root is not an object")
+            b.stem, b.defs = action, req_node.get("definitions", {})
             request = b.obj(req_node, action, f"{action}{profile.request_suffix}")
+            b.stem, b.defs = f"{action}Response", res_node.get("definitions", {})
             response = b.obj(res_node, f"{action}Response", f"{action}{profile.response_suffix}")
             req_ir, res_ir = b.ir.types.pop(request), b.ir.types.pop(response)
             doc = profile.descriptions[action]

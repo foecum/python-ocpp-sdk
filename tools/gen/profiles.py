@@ -64,6 +64,10 @@ class Profile:
     sample_ints: dict[str, int] = field(default_factory=dict)
     #: messages with a schema that a later roadmap item generates.
     deferred: frozenset[str] = frozenset()
+    #: ``Model.wireName`` -> type from ``ocpp_sdk.model`` replacing ``StrictStr`` (PEM, hex, ...).
+    field_types: dict[str, str] = field(default_factory=dict)
+    #: security event type -> whether the whitepaper calls it critical (module ``security``).
+    security_events: dict[str, bool] = field(default_factory=dict)
 
 
 def _loc(*parts: str) -> tuple[str, ...]:
@@ -131,6 +135,25 @@ _MODULES_V16 = (
     Module(
         "remotetrigger", "Remote Trigger", ("TriggerMessage",), "RemoteTrigger", "remote_trigger"
     ),
+    Module(
+        "security",
+        "Security",
+        (
+            "CertificateSigned",
+            "DeleteCertificate",
+            "ExtendedTriggerMessage",
+            "GetInstalledCertificateIds",
+            "GetLog",
+            "InstallCertificate",
+            "LogStatusNotification",
+            "SecurityEventNotification",
+            "SignCertificate",
+            "SignedFirmwareStatusNotification",
+            "SignedUpdateFirmware",
+        ),
+        "Security",
+        "security",
+    ),
 )
 
 _DESCRIPTIONS_V16 = {
@@ -162,6 +185,17 @@ _DESCRIPTIONS_V16 = {
     "GetCompositeSchedule": "Asks for the schedule that results from all charging profiles.",
     "SetChargingProfile": "Installs a charging profile.",
     "TriggerMessage": "Asks the Charge Point to send a message of the given kind.",
+    "CertificateSigned": "Delivers the certificate chain the CA signed for a SignCertificate.",
+    "DeleteCertificate": "Asks the Charge Point to delete an installed certificate.",
+    "ExtendedTriggerMessage": "Asks the Charge Point to send a message, including the new ones.",
+    "GetInstalledCertificateIds": "Asks which certificates of a kind are installed.",
+    "GetLog": "Asks the Charge Point to upload a diagnostics or security log.",
+    "InstallCertificate": "Asks the Charge Point to install a root certificate.",
+    "LogStatusNotification": "Reports the progress of a log upload.",
+    "SecurityEventNotification": "Reports a security event to the Central System.",
+    "SignCertificate": "Asks the Central System to have a certificate signed (CSR).",
+    "SignedFirmwareStatusNotification": "Reports the progress of a signed firmware update.",
+    "SignedUpdateFirmware": "Asks the Charge Point to install firmware with a signature.",
 }
 
 _ENUMS_V16 = {
@@ -304,7 +338,61 @@ _ENUMS_V16 = {
         "The message a TriggerMessage asks for.", _loc("TriggerMessage.requestedMessage")
     ),
     "TriggerMessageStatus": Named(
-        "The answer to TriggerMessage.", _loc("TriggerMessageResponse.status")
+        "The answer to TriggerMessage and ExtendedTriggerMessage.",
+        _loc(
+            "TriggerMessageResponse.status",
+            "ExtendedTriggerMessageResponse#TriggerMessageStatusEnumType",
+        ),
+    ),
+    "CertificateUse": Named(
+        "The kind of root certificate.",
+        _loc(
+            "InstallCertificate#CertificateUseEnumType",
+            "GetInstalledCertificateIds#CertificateUseEnumType",
+        ),
+    ),
+    "HashAlgorithm": Named(
+        "The hash algorithm of a CertificateHashData.",
+        _loc(
+            "DeleteCertificate#HashAlgorithmEnumType",
+            "GetInstalledCertificateIdsResponse#HashAlgorithmEnumType",
+        ),
+    ),
+    "GetInstalledCertificateStatus": Named(
+        "The answer to GetInstalledCertificateIds.",
+        _loc("GetInstalledCertificateIdsResponse#GetInstalledCertificateStatusEnumType"),
+    ),
+    "ExtendedMessageTrigger": Named(
+        "The message an ExtendedTriggerMessage asks for.",
+        _loc("ExtendedTriggerMessage#MessageTriggerEnumType"),
+    ),
+    "LogType": Named("The kind of log to upload.", _loc("GetLog#LogEnumType")),
+    "UploadLogStatus": Named(
+        "The progress of a log upload.", _loc("LogStatusNotification#UploadLogStatusEnumType")
+    ),
+    "SignedFirmwareStatus": Named(
+        "The progress of a signed firmware update.",
+        _loc("SignedFirmwareStatusNotification#FirmwareStatusEnumType"),
+    ),
+    "CertificateSignedStatus": Named(
+        "The answer to CertificateSigned.",
+        _loc("CertificateSignedResponse#CertificateSignedStatusEnumType"),
+    ),
+    "InstallCertificateStatus": Named(
+        "The answer to InstallCertificate.",
+        _loc("InstallCertificateResponse#InstallCertificateStatusEnumType"),
+    ),
+    "DeleteCertificateStatus": Named(
+        "The answer to DeleteCertificate.",
+        _loc("DeleteCertificateResponse#DeleteCertificateStatusEnumType"),
+    ),
+    "LogStatus": Named("The answer to GetLog.", _loc("GetLogResponse#LogStatusEnumType")),
+    "SignedUpdateFirmwareStatus": Named(
+        "The answer to SignedUpdateFirmware.",
+        _loc("SignedUpdateFirmwareResponse#UpdateFirmwareStatusEnumType"),
+    ),
+    "GenericStatus": Named(
+        "The answer to SignCertificate.", _loc("SignCertificateResponse#GenericStatusEnumType")
     ),
 }
 
@@ -360,6 +448,17 @@ _TYPES_V16 = {
         "One entry of a local authorization list update.",
         _loc("SendLocalList.localAuthorizationList[]"),
     ),
+    "CertificateHashData": Named(
+        "Identifies an installed certificate by hashes of its issuer and its serial number.",
+        _loc(
+            "DeleteCertificate#CertificateHashDataType",
+            "GetInstalledCertificateIdsResponse#CertificateHashDataType",
+        ),
+    ),
+    "LogParameters": Named("Which log to upload and where.", _loc("GetLog#LogParametersType")),
+    "Firmware": Named(
+        "The signed firmware of a SignedUpdateFirmware.", _loc("SignedUpdateFirmware#FirmwareType")
+    ),
 }
 
 #: Minimums the spec text gives for integers (the schemas only say ``integer``).
@@ -388,12 +487,55 @@ _INT_MIN_V16 = {
     "ChargingSchedulePeriod.startPeriod": 0,
     "ChargingSchedulePeriod.numberPhases": 1,
     "TriggerMessageRequest.connectorId": 1,
+    "ExtendedTriggerMessageRequest.connectorId": 1,
+    "GetLogRequest.retries": 0,
+    "GetLogRequest.retryInterval": 0,
+    "SignedUpdateFirmwareRequest.retries": 0,
+    "SignedUpdateFirmwareRequest.retryInterval": 0,
 }
 
 _ARRAY_MIN_V16 = {
     "MeterValuesRequest.meterValue": 1,
     "MeterValue.sampledValue": 1,
     "ChargingSchedule.chargingSchedulePeriod": 1,
+    # The spec says 0..* where the schema says minItems 1 (an override, not a minimum).
+    "GetInstalledCertificateIdsConfirmation.certificateHashData": 0,
+}
+
+_FIELD_TYPES_V16 = {
+    "SignCertificateRequest.csr": "PemCsr",
+    "CertificateSignedRequest.certificateChain": "PemCertificates",
+    "InstallCertificateRequest.certificate": "PemCertificate",
+    "Firmware.signingCertificate": "PemCertificate",
+    "Firmware.signature": "Base64",
+    "Firmware.location": "AbsoluteURI",
+    "LogParameters.remoteLocation": "AbsoluteURI",
+    "CertificateHashData.issuerNameHash": "HexBytes",
+    "CertificateHashData.issuerKeyHash": "HexBytes",
+    "CertificateHashData.serialNumber": "Hex",
+}
+
+#: The security events of the whitepaper (edition 3, table "Security events") and whether
+#: each is critical. ``SecurityEventNotification.type`` stays an open string.
+_SECURITY_EVENTS_V16 = {
+    "FirmwareUpdated": True,
+    "FailedToAuthenticateAtCentralSystem": False,
+    "CentralSystemFailedToAuthenticate": False,
+    "SettingSystemTime": True,
+    "StartupOfTheDevice": True,
+    "ResetOrReboot": True,
+    "SecurityLogWasCleared": True,
+    "ReconfigurationOfSecurityParameters": False,
+    "MemoryExhaustion": True,
+    "InvalidMessages": False,
+    "AttemptedReplayAttacks": False,
+    "TamperDetectionActivated": True,
+    "InvalidFirmwareSignature": False,
+    "InvalidFirmwareSigningCertificate": False,
+    "InvalidCentralSystemCertificate": False,
+    "InvalidChargePointCertificate": False,
+    "InvalidTLSVersion": False,
+    "InvalidTLSCipherSuite": False,
 }
 
 _RULES_V16 = {
@@ -441,6 +583,10 @@ V16 = Profile(
             "StartTransaction",
             "StatusNotification",
             "StopTransaction",
+            "LogStatusNotification",
+            "SecurityEventNotification",
+            "SignCertificate",
+            "SignedFirmwareStatusNotification",
         }
     ),
     descriptions=_DESCRIPTIONS_V16,
@@ -452,20 +598,6 @@ V16 = Profile(
     rules=_RULES_V16,
     member_names={"kWh": "KWH", "kW": "KW", "kVA": "KVA", "SoC": "SOC"},
     sample_ints={"startPeriod": 0},
-    # The security extension (roadmap phase 7).
-    deferred=frozenset(
-        {
-            "CertificateSigned",
-            "DeleteCertificate",
-            "ExtendedTriggerMessage",
-            "GetInstalledCertificateIds",
-            "GetLog",
-            "InstallCertificate",
-            "LogStatusNotification",
-            "SecurityEventNotification",
-            "SignCertificate",
-            "SignedFirmwareStatusNotification",
-            "SignedUpdateFirmware",
-        }
-    ),
+    field_types=_FIELD_TYPES_V16,
+    security_events=_SECURITY_EVENTS_V16,
 )

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import secrets
 import ssl
 from collections.abc import Mapping
 from typing import Any
@@ -21,7 +22,9 @@ __all__ = [
     "basic_auth_header",
     "certificate_identity_ok",
     "charge_point_id_from_path",
+    "check_authorization_key",
     "client_ssl_context",
+    "generate_authorization_key",
     "parse_basic_auth",
     "server_ssl_context",
     "valid_charge_point_id",
@@ -143,3 +146,34 @@ def client_ssl_context(
     if certfile is not None:
         context.load_cert_chain(certfile, keyfile, password)
     return context
+
+
+_AUTHORIZATION_KEY_DIGITS = (32, 40)
+
+
+def check_authorization_key(key: str) -> bool:
+    """Whether ``key`` is a valid 1.6 security ``AuthorizationKey``.
+
+    The key is the Basic-auth password of security profiles 1 and 2: 16 to 20 bytes written as
+    32 to 40 hexadecimal digits and sent as that text.
+
+    Example:
+        >>> check_authorization_key("00112233445566778899aabbccddeeff")
+        True
+        >>> check_authorization_key("not hex")
+        False
+    """
+    low, high = _AUTHORIZATION_KEY_DIGITS
+    if not low <= len(key) <= high or len(key) % 2:
+        return False
+    return all(c in "0123456789abcdefABCDEF" for c in key)
+
+
+def generate_authorization_key() -> str:
+    """A new random ``AuthorizationKey``: 20 random bytes as 40 hexadecimal digits.
+
+    Example:
+        >>> check_authorization_key(generate_authorization_key())
+        True
+    """
+    return secrets.token_hex(20)

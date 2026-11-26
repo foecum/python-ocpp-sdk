@@ -1,0 +1,9 @@
+{
+  "request": {
+    "requestedMessage": "SignChargePointCertificate",
+    "connectorId": 1
+  },
+  "response": {
+    "status": "NotImplemented"
+  }
+}

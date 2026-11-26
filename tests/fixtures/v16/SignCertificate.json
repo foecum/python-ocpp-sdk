@@ -1,0 +1,8 @@
+{
+  "request": {
+    "csr": "-----BEGIN CERTIFICATE REQUEST-----\nMIIBVjCBvAIBADAXMRUwEwYDVQQDDAxDUC0xMjM0\n-----END CERTIFICATE REQUEST-----\n"
+  },
+  "response": {
+    "status": "Accepted"
+  }
+}

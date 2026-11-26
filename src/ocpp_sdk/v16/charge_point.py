@@ -31,6 +31,7 @@ from ocpp_sdk.v16.charge_point_handlers import (
     LocalAuthListHandler,
     RemoteTriggerHandler,
     ReservationHandler,
+    SecurityHandler,
     SmartChargingHandler,
 )
 from ocpp_sdk.versions import Version
@@ -62,6 +63,7 @@ class Config:
     reservation: ReservationHandler | None = None
     smart_charging: SmartChargingHandler | None = None
     remote_trigger: RemoteTriggerHandler | None = None
+    security: SecurityHandler | None = None
 
 
 class _OnlineSink:

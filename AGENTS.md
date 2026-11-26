@@ -438,14 +438,14 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 7 — OCPP 1.6 security extension
 
-- [ ] Generated `v16/security`: SecurityEventNotification, SignCertificate,
+- [x] Generated `v16/security`: SecurityEventNotification, SignCertificate,
       CertificateSigned, InstallCertificate, DeleteCertificate,
       GetInstalledCertificateIds, ExtendedTriggerMessage, GetLog,
       LogStatusNotification, SignedUpdateFirmware, SignedFirmwareStatusNotification;
       clashing enums renamed (`SignedFirmwareStatus`, `ExtendedMessageTrigger`,
       `SignedUpdateFirmwareStatus`); `is_known_event` / `is_critical_event`
-- [ ] `Security` field in both `Config`s; AuthorizationKey helpers
-- [ ] Tests, site update
+- [x] `Security` field in both `Config`s; AuthorizationKey helpers
+- [x] Tests, site update
 
 ### Phase 8 — OCPP 2.0.1
 
@@ -599,6 +599,17 @@ Record each decision as: date — decision — reason.
   and skip when `go` or the module download is unavailable; CI installs Go. The 1.6 examples
   are plain CLIs (argparse) with an optional Basic password; the CSMS one calls GetConfiguration
   back after a station connects.
+- 2026-11-26 — The generator reads `$ref`/`definitions` (the security schemas): a referenced
+  definition is located as `<schema stem>#<DefinitionName>` in the profile tables, and `javaType`
+  is ignored when comparing. Extension enums that clash get the names `LogType`,
+  `SignedFirmwareStatus`, `ExtendedMessageTrigger`, `SignedUpdateFirmwareStatus`,
+  `UploadLogStatus`, `GenericStatus`, ...; ExtendedTriggerMessage's answer enum is identical
+  to TriggerMessage's and reuses `TriggerMessageStatus`. `array_min` entries now override the
+  schema (0 = none), used for GetInstalledCertificateIds.conf (spec 0..* beats schema).
+  String checks (`PemCsr`, `PemCertificate(s)`, `Hex`, `HexBytes`, `Base64`) live in
+  `ocpp_sdk.model` and are assigned to fields by `field_types` in `profiles.py`.
+  The security event list and its critical flags come from whitepaper edition 3 (checked
+  against the PDF); `AuthorizationKey` helpers are in `transport.auth`.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 

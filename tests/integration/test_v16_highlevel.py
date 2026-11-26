@@ -467,9 +467,7 @@ def test_config_fields_match_the_generated_dispatch_tables() -> None:
     assert {f.name for f in dataclasses.fields(csms_module.Config)} == {
         f for f, _ in ch.DISPATCH.values()
     }
-    assert (
-        len(cph.DISPATCH) == 19 and len(ch.DISPATCH) == 10
-    )  # 28 messages: 9 from the station, 18 from the CSMS, DataTransfer both
+    assert len(cph.DISPATCH) == 26 and len(ch.DISPATCH) == 14  # 39 messages, DataTransfer both ways
 
 
 def test_url_without_charge_point_id_is_rejected() -> None:

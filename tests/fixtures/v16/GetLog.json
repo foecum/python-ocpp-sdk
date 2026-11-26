@@ -1,0 +1,17 @@
+{
+  "request": {
+    "log": {
+      "remoteLocation": "ftp://logs.example.com/cp1",
+      "oldestTimestamp": "2025-03-14T09:26:53Z",
+      "latestTimestamp": "2025-03-14T10:00:00Z"
+    },
+    "logType": "SecurityLog",
+    "requestId": 5,
+    "retries": 3,
+    "retryInterval": 60
+  },
+  "response": {
+    "status": "AcceptedCanceled",
+    "filename": "security.log"
+  }
+}

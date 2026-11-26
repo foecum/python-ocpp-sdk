@@ -39,11 +39,11 @@
     <tbody>
       <tr><td>Core: errors, date-times, OCPP-J frames, registry, endpoint</td><td>done</td></tr>
       <tr><td>WebSocket transport: server, client with reconnect, security profiles 1-3</td><td>done</td></tr>
-      <tr><td>OCPP 1.6J message models (28 messages, six feature profiles)</td><td>done</td></tr>
+      <tr><td>OCPP 1.6J message models (39 messages: six feature profiles and the security extension)</td><td>done</td></tr>
       <tr><td>OCPP 1.6J high-level <code>ChargePoint</code> and <code>CSMS</code> API</td><td>done</td></tr>
       <tr><td>OCPP 1.6J transaction message queue</td><td>done</td></tr>
       <tr><td>OCPP 1.6J examples and go-ocpp-sdk interop tests</td><td>done</td></tr>
-      <tr><td>OCPP 1.6 security extension</td><td>planned</td></tr>
+      <tr><td>OCPP 1.6 security extension (11 messages, AuthorizationKey helpers)</td><td>done</td></tr>
       <tr><td>OCPP 2.0.1</td><td>planned</td></tr>
       <tr><td>OCPP 2.1</td><td>planned</td></tr>
     </tbody>
@@ -115,6 +115,9 @@ asyncio.run(main())</pre>
     </tbody>
   </table>
   <p>TLS 1.2 or newer, with ECDHE AES-GCM suites; TLS 1.0 and 1.1 are not supported.</p>
+  <p>The 1.6 Basic-auth password is the <code>AuthorizationKey</code>: 16 to 20 bytes as 32 to 40 hexadecimal digits, sent as that
+  text. <code>ocpp_sdk.transport.auth.check_authorization_key(key)</code> validates one and
+  <code>generate_authorization_key()</code> makes a new 40-digit key.</p>
 
   <h2>Core</h2>
   <ul>
@@ -146,9 +149,18 @@ asyncio.run(main())</pre>
       <tr><td><code>ocpp_sdk.v16.reservation</code></td><td>CancelReservation, ReserveNow</td></tr>
       <tr><td><code>ocpp_sdk.v16.smartcharging</code></td><td>ClearChargingProfile, GetCompositeSchedule, SetChargingProfile</td></tr>
       <tr><td><code>ocpp_sdk.v16.remotetrigger</code></td><td>TriggerMessage</td></tr>
+      <tr><td><code>ocpp_sdk.v16.security</code></td><td>Security extension (whitepaper edition 3): CertificateSigned, DeleteCertificate,
+        ExtendedTriggerMessage, GetInstalledCertificateIds, GetLog, InstallCertificate, LogStatusNotification,
+        SecurityEventNotification, SignCertificate, SignedFirmwareStatusNotification, SignedUpdateFirmware</td></tr>
     </tbody>
   </table>
-  <p>Shared datatypes and enums are in <code>ocpp_sdk.v16.types</code>. The 1.6 security extension messages are planned.</p>
+  <p>Shared datatypes and enums are in <code>ocpp_sdk.v16.types</code>. The security extension adds <code>SecurityEvent</code>
+  (the whitepaper's event types), <code>is_known_event</code> and <code>is_critical_event</code>;
+  <code>SecurityEventNotification.type</code> stays an open string because vendors may send other types.
+  Certificates and CSRs are checked as PEM blocks of the right type (not parsed), certificate hashes as hex,
+  firmware signatures as Base64, and the <code>GetInstalledCertificateIds</code> answer may list no certificates
+  (the spec says 0..*, the schema 1..*; the spec wins). Handlers: <code>SecurityHandler</code> and
+  <code>Config.security</code> on both sides.</p>
 <pre><code>from ocpp_sdk.v16 import new_registry
 from ocpp_sdk.v16.core import BootNotificationConfirmation, BootNotificationRequest
 from ocpp_sdk.v16.types import RegistrationStatus

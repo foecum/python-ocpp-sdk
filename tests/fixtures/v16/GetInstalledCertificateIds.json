@@ -1,0 +1,22 @@
+{
+  "request": {
+    "certificateType": "ManufacturerRootCertificate"
+  },
+  "response": {
+    "status": "Accepted",
+    "certificateHashData": [
+      {
+        "hashAlgorithm": "SHA256",
+        "issuerNameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issuerKeyHash": "0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F",
+        "serialNumber": "FFF"
+      },
+      {
+        "hashAlgorithm": "SHA512",
+        "issuerNameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "issuerKeyHash": "0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F",
+        "serialNumber": "01"
+      }
+    ]
+  }
+}

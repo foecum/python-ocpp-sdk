@@ -66,6 +66,30 @@ from ocpp_sdk.v16.reservation import (
     ReserveNowConfirmation,
     ReserveNowRequest,
 )
+from ocpp_sdk.v16.security import (
+    CertificateSignedConfirmation,
+    CertificateSignedRequest,
+    DeleteCertificateConfirmation,
+    DeleteCertificateRequest,
+    ExtendedTriggerMessageConfirmation,
+    ExtendedTriggerMessageRequest,
+    GetInstalledCertificateIdsConfirmation,
+    GetInstalledCertificateIdsRequest,
+    GetLogConfirmation,
+    GetLogRequest,
+    InstallCertificateConfirmation,
+    InstallCertificateRequest,
+    LogStatusNotificationConfirmation,
+    LogStatusNotificationRequest,
+    SecurityEventNotificationConfirmation,
+    SecurityEventNotificationRequest,
+    SignCertificateConfirmation,
+    SignCertificateRequest,
+    SignedFirmwareStatusNotificationConfirmation,
+    SignedFirmwareStatusNotificationRequest,
+    SignedUpdateFirmwareConfirmation,
+    SignedUpdateFirmwareRequest,
+)
 from ocpp_sdk.v16.smartcharging import (
     ClearChargingProfileConfirmation,
     ClearChargingProfileRequest,
@@ -83,9 +107,11 @@ __all__ = [
     "CSMSCalls",
     "CoreHandler",
     "FirmwareHandler",
+    "SecurityHandler",
     "StationCalls",
     "UnimplementedCoreHandler",
     "UnimplementedFirmwareHandler",
+    "UnimplementedSecurityHandler",
 ]
 
 
@@ -267,6 +293,88 @@ class UnimplementedFirmwareHandler(FirmwareHandler):
     ) -> FirmwareStatusNotificationConfirmation | Awaitable[FirmwareStatusNotificationConfirmation]:
         """Answers ``NotSupported``."""
         raise CallError(ErrorCodeV16.NOT_SUPPORTED, "FirmwareStatusNotification is not supported")
+
+
+class SecurityHandler(Protocol):
+    """Handles the Security messages that the Central System
+    receives from the Charge Point.
+
+    Methods may be sync or async. Raise ``ocpp_sdk.errors.CallError`` to answer with a
+    specific CALLERROR; any other exception is answered with ``InternalError``.
+
+    Example:
+        >>> SecurityHandler in UnimplementedSecurityHandler.__mro__
+        True
+    """
+
+    def on_log_status_notification(
+        self, charge_point: ChargePoint, request: LogStatusNotificationRequest
+    ) -> LogStatusNotificationConfirmation | Awaitable[LogStatusNotificationConfirmation]:
+        """Reports the progress of a log upload."""
+        ...
+
+    def on_security_event_notification(
+        self, charge_point: ChargePoint, request: SecurityEventNotificationRequest
+    ) -> SecurityEventNotificationConfirmation | Awaitable[SecurityEventNotificationConfirmation]:
+        """Reports a security event to the Central System."""
+        ...
+
+    def on_sign_certificate(
+        self, charge_point: ChargePoint, request: SignCertificateRequest
+    ) -> SignCertificateConfirmation | Awaitable[SignCertificateConfirmation]:
+        """Asks the Central System to have a certificate signed (CSR)."""
+        ...
+
+    def on_signed_firmware_status_notification(
+        self, charge_point: ChargePoint, request: SignedFirmwareStatusNotificationRequest
+    ) -> (
+        SignedFirmwareStatusNotificationConfirmation
+        | Awaitable[SignedFirmwareStatusNotificationConfirmation]
+    ):
+        """Reports the progress of a signed firmware update."""
+        ...
+
+
+class UnimplementedSecurityHandler(SecurityHandler):
+    """Answers every Security message with ``NotSupported``.
+
+    Override the messages you support.
+
+    Example:
+        >>> class MyHandler(UnimplementedSecurityHandler):
+        ...     pass
+        >>> SecurityHandler in MyHandler.__mro__
+        True
+    """
+
+    def on_log_status_notification(
+        self, charge_point: ChargePoint, request: LogStatusNotificationRequest
+    ) -> LogStatusNotificationConfirmation | Awaitable[LogStatusNotificationConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "LogStatusNotification is not supported")
+
+    def on_security_event_notification(
+        self, charge_point: ChargePoint, request: SecurityEventNotificationRequest
+    ) -> SecurityEventNotificationConfirmation | Awaitable[SecurityEventNotificationConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "SecurityEventNotification is not supported")
+
+    def on_sign_certificate(
+        self, charge_point: ChargePoint, request: SignCertificateRequest
+    ) -> SignCertificateConfirmation | Awaitable[SignCertificateConfirmation]:
+        """Answers ``NotSupported``."""
+        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "SignCertificate is not supported")
+
+    def on_signed_firmware_status_notification(
+        self, charge_point: ChargePoint, request: SignedFirmwareStatusNotificationRequest
+    ) -> (
+        SignedFirmwareStatusNotificationConfirmation
+        | Awaitable[SignedFirmwareStatusNotificationConfirmation]
+    ):
+        """Answers ``NotSupported``."""
+        raise CallError(
+            ErrorCodeV16.NOT_SUPPORTED, "SignedFirmwareStatusNotification is not supported"
+        )
 
 
 class StationCalls:
@@ -716,6 +824,169 @@ class StationCalls:
             >>> await peer.trigger_message(request)  # doctest: +SKIP
         """
         return cast(TriggerMessageConfirmation, await self._call(request, timeout))
+
+    async def certificate_signed(
+        self, request: CertificateSignedRequest, *, timeout: float | None = None
+    ) -> CertificateSignedConfirmation:
+        """Sends CertificateSigned: delivers the certificate chain the CA signed for a
+        SignCertificate.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.certificate_signed(request)  # doctest: +SKIP
+        """
+        return cast(CertificateSignedConfirmation, await self._call(request, timeout))
+
+    async def delete_certificate(
+        self, request: DeleteCertificateRequest, *, timeout: float | None = None
+    ) -> DeleteCertificateConfirmation:
+        """Sends DeleteCertificate: asks the Charge Point to delete an installed certificate.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.delete_certificate(request)  # doctest: +SKIP
+        """
+        return cast(DeleteCertificateConfirmation, await self._call(request, timeout))
+
+    async def extended_trigger_message(
+        self, request: ExtendedTriggerMessageRequest, *, timeout: float | None = None
+    ) -> ExtendedTriggerMessageConfirmation:
+        """Sends ExtendedTriggerMessage: asks the Charge Point to send a message, including the new
+        ones.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.extended_trigger_message(request)  # doctest: +SKIP
+        """
+        return cast(ExtendedTriggerMessageConfirmation, await self._call(request, timeout))
+
+    async def get_installed_certificate_ids(
+        self, request: GetInstalledCertificateIdsRequest, *, timeout: float | None = None
+    ) -> GetInstalledCertificateIdsConfirmation:
+        """Sends GetInstalledCertificateIds: asks which certificates of a kind are installed.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.get_installed_certificate_ids(request)  # doctest: +SKIP
+        """
+        return cast(GetInstalledCertificateIdsConfirmation, await self._call(request, timeout))
+
+    async def get_log(
+        self, request: GetLogRequest, *, timeout: float | None = None
+    ) -> GetLogConfirmation:
+        """Sends GetLog: asks the Charge Point to upload a diagnostics or security log.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.get_log(request)  # doctest: +SKIP
+        """
+        return cast(GetLogConfirmation, await self._call(request, timeout))
+
+    async def install_certificate(
+        self, request: InstallCertificateRequest, *, timeout: float | None = None
+    ) -> InstallCertificateConfirmation:
+        """Sends InstallCertificate: asks the Charge Point to install a root certificate.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.install_certificate(request)  # doctest: +SKIP
+        """
+        return cast(InstallCertificateConfirmation, await self._call(request, timeout))
+
+    async def signed_update_firmware(
+        self, request: SignedUpdateFirmwareRequest, *, timeout: float | None = None
+    ) -> SignedUpdateFirmwareConfirmation:
+        """Sends SignedUpdateFirmware: asks the Charge Point to install firmware with a signature.
+
+        Args:
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await peer.signed_update_firmware(request)  # doctest: +SKIP
+        """
+        return cast(SignedUpdateFirmwareConfirmation, await self._call(request, timeout))
 
 
 class CSMSCalls:
@@ -1281,6 +1552,220 @@ class CSMSCalls:
             await self._call_charge_point(charge_point_id, request, timeout),
         )
 
+    async def certificate_signed(
+        self,
+        charge_point_id: str,
+        request: CertificateSignedRequest,
+        *,
+        timeout: float | None = None,
+    ) -> CertificateSignedConfirmation:
+        """Sends CertificateSigned: delivers the certificate chain the CA signed for a
+        SignCertificate.
+
+        Args:
+            charge_point_id: The station to call; it must be connected.
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await csms.certificate_signed('CP-1', request)  # doctest: +SKIP
+        """
+        return cast(
+            CertificateSignedConfirmation,
+            await self._call_charge_point(charge_point_id, request, timeout),
+        )
+
+    async def delete_certificate(
+        self,
+        charge_point_id: str,
+        request: DeleteCertificateRequest,
+        *,
+        timeout: float | None = None,
+    ) -> DeleteCertificateConfirmation:
+        """Sends DeleteCertificate: asks the Charge Point to delete an installed certificate.
+
+        Args:
+            charge_point_id: The station to call; it must be connected.
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await csms.delete_certificate('CP-1', request)  # doctest: +SKIP
+        """
+        return cast(
+            DeleteCertificateConfirmation,
+            await self._call_charge_point(charge_point_id, request, timeout),
+        )
+
+    async def extended_trigger_message(
+        self,
+        charge_point_id: str,
+        request: ExtendedTriggerMessageRequest,
+        *,
+        timeout: float | None = None,
+    ) -> ExtendedTriggerMessageConfirmation:
+        """Sends ExtendedTriggerMessage: asks the Charge Point to send a message, including the new
+        ones.
+
+        Args:
+            charge_point_id: The station to call; it must be connected.
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await csms.extended_trigger_message('CP-1', request)  # doctest: +SKIP
+        """
+        return cast(
+            ExtendedTriggerMessageConfirmation,
+            await self._call_charge_point(charge_point_id, request, timeout),
+        )
+
+    async def get_installed_certificate_ids(
+        self,
+        charge_point_id: str,
+        request: GetInstalledCertificateIdsRequest,
+        *,
+        timeout: float | None = None,
+    ) -> GetInstalledCertificateIdsConfirmation:
+        """Sends GetInstalledCertificateIds: asks which certificates of a kind are installed.
+
+        Args:
+            charge_point_id: The station to call; it must be connected.
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await csms.get_installed_certificate_ids('CP-1', request)  # doctest: +SKIP
+        """
+        return cast(
+            GetInstalledCertificateIdsConfirmation,
+            await self._call_charge_point(charge_point_id, request, timeout),
+        )
+
+    async def get_log(
+        self, charge_point_id: str, request: GetLogRequest, *, timeout: float | None = None
+    ) -> GetLogConfirmation:
+        """Sends GetLog: asks the Charge Point to upload a diagnostics or security log.
+
+        Args:
+            charge_point_id: The station to call; it must be connected.
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await csms.get_log('CP-1', request)  # doctest: +SKIP
+        """
+        return cast(
+            GetLogConfirmation, await self._call_charge_point(charge_point_id, request, timeout)
+        )
+
+    async def install_certificate(
+        self,
+        charge_point_id: str,
+        request: InstallCertificateRequest,
+        *,
+        timeout: float | None = None,
+    ) -> InstallCertificateConfirmation:
+        """Sends InstallCertificate: asks the Charge Point to install a root certificate.
+
+        Args:
+            charge_point_id: The station to call; it must be connected.
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await csms.install_certificate('CP-1', request)  # doctest: +SKIP
+        """
+        return cast(
+            InstallCertificateConfirmation,
+            await self._call_charge_point(charge_point_id, request, timeout),
+        )
+
+    async def signed_update_firmware(
+        self,
+        charge_point_id: str,
+        request: SignedUpdateFirmwareRequest,
+        *,
+        timeout: float | None = None,
+    ) -> SignedUpdateFirmwareConfirmation:
+        """Sends SignedUpdateFirmware: asks the Charge Point to install firmware with a signature.
+
+        Args:
+            charge_point_id: The station to call; it must be connected.
+            request: The request to send.
+            timeout: Seconds to wait for the answer; the endpoint's default if ``None``.
+
+        Returns:
+            The answer of the peer.
+
+        Raises:
+            NotConnectedError: There is no connection (nothing is queued or retried).
+            CallTimeoutError: No answer arrived in time.
+            CallError: The peer answered with a CALLERROR.
+            ValidationError: The request or the answer is invalid.
+
+        Example:
+            >>> await csms.signed_update_firmware('CP-1', request)  # doctest: +SKIP
+        """
+        return cast(
+            SignedUpdateFirmwareConfirmation,
+            await self._call_charge_point(charge_point_id, request, timeout),
+        )
+
 
 DISPATCH: dict[str, tuple[str, str]] = {
     "Authorize": ("core", "on_authorize"),
@@ -1293,5 +1778,9 @@ DISPATCH: dict[str, tuple[str, str]] = {
     "StopTransaction": ("core", "on_stop_transaction"),
     "DiagnosticsStatusNotification": ("firmware", "on_diagnostics_status_notification"),
     "FirmwareStatusNotification": ("firmware", "on_firmware_status_notification"),
+    "LogStatusNotification": ("security", "on_log_status_notification"),
+    "SecurityEventNotification": ("security", "on_security_event_notification"),
+    "SignCertificate": ("security", "on_sign_certificate"),
+    "SignedFirmwareStatusNotification": ("security", "on_signed_firmware_status_notification"),
 }
 """Action -> (Config field, handler method) for the messages this side receives."""

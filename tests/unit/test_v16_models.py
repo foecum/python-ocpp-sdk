@@ -35,8 +35,8 @@ def request_error(action: str, payload: dict[str, Any]) -> CallError:
     return info.value
 
 
-def test_registry_has_the_28_messages() -> None:
-    assert len(REGISTRY.actions()) == 28
+def test_registry_has_the_39_messages() -> None:
+    assert len(REGISTRY.actions()) == 39
     assert getattr(REGISTRY.request_type("Heartbeat"), "ACTION", None) == "Heartbeat"
 
 

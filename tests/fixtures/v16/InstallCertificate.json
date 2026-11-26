@@ -1,0 +1,9 @@
+{
+  "request": {
+    "certificateType": "CentralSystemRootCertificate",
+    "certificate": "-----BEGIN CERTIFICATE-----\nMIIBszCCAVmgAwIBAgIUQ0hBUkdFUE9JTlQ=\n-----END CERTIFICATE-----\n"
+  },
+  "response": {
+    "status": "Accepted"
+  }
+}

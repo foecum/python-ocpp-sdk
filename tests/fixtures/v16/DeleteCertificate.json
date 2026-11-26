@@ -1,0 +1,13 @@
+{
+  "request": {
+    "certificateHashData": {
+      "hashAlgorithm": "SHA256",
+      "issuerNameHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "issuerKeyHash": "0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F",
+      "serialNumber": "FFF"
+    }
+  },
+  "response": {
+    "status": "NotFound"
+  }
+}

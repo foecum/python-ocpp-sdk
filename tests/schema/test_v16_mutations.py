@@ -4,8 +4,8 @@ official schema forbids, and check that the SDK rejects the payload.
 The valid sample payloads (``tests/fixtures/v16``) are mutated one change at a time:
 a required field removed or set to ``null``; a wrong JSON type; a string over
 ``maxLength``; an unknown enum value; a malformed date-time or URI; an integer with a
-fraction; a number that is not a multiple of 0.1; an array under ``minItems`` (no schema of
-the six profiles has one; the security extension does). Removing an optional field must be
+fraction; a number that is not a multiple of 0.1; an array under ``minItems`` (only the
+security schemas have one). Removing an optional field must be
 accepted. Every mutation that is not about a ``format`` is
 also checked against the schema itself, so the test cannot drift into mutating
 something the schema allows.
@@ -48,12 +48,26 @@ def wrong_values(spec: dict[str, Any]) -> list[Any]:
     return others[str(kind)]
 
 
-def mutations(spec: dict[str, Any], value: Any, path: Path_, slot: str) -> Iterator[Mutation]:
+# The spec says 0..* where the schema says minItems 1 (AGENTS.md section 4): not rejected.
+SPEC_BEATS_SCHEMA = {("GetInstalledCertificateIds", "response", ("certificateHashData",))}
+
+
+def resolve(spec: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]:
+    """Follow ``$ref: #/definitions/X`` (the security schemas use them)."""
+    while "$ref" in spec:
+        spec = defs[spec["$ref"].removeprefix("#/definitions/")]
+    return spec
+
+
+def mutations(
+    spec: dict[str, Any], value: Any, path: Path_, slot: str, defs: dict[str, Any]
+) -> Iterator[Mutation]:
     """Every single change to ``value`` (at ``path``) to be tried, with whether it must fail.
 
     ``slot`` says what the value is: ``root``, a ``required`` or ``optional`` property, or an
     array ``item``.
     """
+    spec = resolve(spec, defs)
     kind = spec.get("type")
     if path:
         if slot == "required":
@@ -82,13 +96,17 @@ def mutations(spec: dict[str, Any], value: Any, path: Path_, slot: str) -> Itera
         for name, sub in spec.get("properties", {}).items():
             if name in value:
                 yield from mutations(
-                    sub, value[name], (*path, name), "required" if name in needed else "optional"
+                    sub,
+                    value[name],
+                    (*path, name),
+                    "required" if name in needed else "optional",
+                    defs,
                 )
     if kind == "array":
         if "minItems" in spec:
             yield ("under minItems", path, [], True, True)
         for index, item in enumerate(value):
-            yield from mutations(spec["items"], item, (*path, index), "item")
+            yield from mutations(spec["items"], item, (*path, index), "item", defs)
 
 
 def apply(payload: dict[str, Any], path: Path_, new: Any) -> dict[str, Any]:
@@ -111,7 +129,10 @@ def cases(part: str) -> list[Any]:
         schema_name = action if part == "request" else f"{action}Response"
         schema = json.loads((SCHEMAS / f"{schema_name}.json").read_text())
         payload = json.loads((FIXTURES / f"{action}.json").read_text())[part]
-        for name, path, new, reject, schema_agrees in mutations(schema, payload, (), "root"):
+        defs = schema.get("definitions", {})
+        for name, path, new, reject, schema_agrees in mutations(schema, payload, (), "root", defs):
+            if (action, part, path) in SPEC_BEATS_SCHEMA and name == "under minItems":
+                reject, schema_agrees = False, False
             mutated = apply(payload, path, new)
             label = f"{action}|{part}|{'.'.join(map(str, path)) or 'root'}|{name}"
             out.append(pytest.param(action, schema, mutated, reject, schema_agrees, id=label))
@@ -162,5 +183,6 @@ def test_the_mutations_cover_every_constraint_kind() -> None:
         "relative uri",
         "fraction in integer",
         "two decimals",
+        "under minItems",
     ):
         assert expected in names

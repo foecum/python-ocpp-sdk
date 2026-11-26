@@ -61,14 +61,17 @@ class Echoing:
 @pytest.fixture
 async def pair() -> AsyncIterator[tuple[CSMS, ChargePoint, Echoing, Echoing]]:
     csms_handler, station_handler = Echoing(with_session=True), Echoing(with_session=False)
-    csms_config = csms_module.Config(core=csms_handler, firmware=csms_handler)  # type: ignore[arg-type]
+    any_csms: Any = csms_handler
+    any_station: Any = station_handler
+    csms_config = csms_module.Config(core=any_csms, firmware=any_csms, security=any_csms)
     station_config = cp_module.Config(
-        core=station_handler,  # type: ignore[arg-type]
-        firmware=station_handler,  # type: ignore[arg-type]
-        local_auth_list=station_handler,  # type: ignore[arg-type]
-        reservation=station_handler,  # type: ignore[arg-type]
-        smart_charging=station_handler,  # type: ignore[arg-type]
-        remote_trigger=station_handler,  # type: ignore[arg-type]
+        core=any_station,
+        firmware=any_station,
+        local_auth_list=any_station,
+        reservation=any_station,
+        smart_charging=any_station,
+        remote_trigger=any_station,
+        security=any_station,
     )
     server = CSMS(csms_config, port=0, ping_interval=None)
     await server.start()
