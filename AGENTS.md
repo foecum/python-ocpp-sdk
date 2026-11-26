@@ -374,7 +374,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 - [x] `ocppj.endpoint`: correlation, timeouts, one outstanding CALL per direction,
       bounded queue, cancellation frees the slot, incoming CALLs in own task,
       framing rules from section 4
-- [ ] Parametrised tests: valid frames, malformed JSON, wrong element types,
+- [x] Parametrised tests: valid frames, malformed JSON, wrong element types,
       unknown action, unknown message type, unreadable ID, null payload,
       response with unknown ID, timeout, cancellation, queue full
 
