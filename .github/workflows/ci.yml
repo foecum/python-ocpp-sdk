@@ -13,10 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-go@v5 # interop tests run go-ocpp-sdk's examples
+        with:
+          go-version: stable
       - run: uv python install ${{ matrix.python-version }}
       - run: uv sync --all-groups --python ${{ matrix.python-version }}
       - run: uv run ruff format --check .
       - run: uv run ruff check .
-      - run: uv run mypy src tests tools scripts
+      - run: uv run mypy src tests tools scripts examples
       - run: uv run pytest --cov=ocpp_sdk --cov-branch --cov-report=json
       - run: uv run python scripts/coverage.py

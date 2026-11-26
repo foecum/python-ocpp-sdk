@@ -425,14 +425,14 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 6 — 1.6 examples, docs, release
 
-- [ ] `examples/v16/csms.py` and `examples/v16/charge_point.py` (plain `ws://`,
+- [x] `examples/v16/csms.py` and `examples/v16/charge_point.py` (plain `ws://`,
       optional Basic auth) and a slow smoke test running them against each other
-- [ ] Interop test: Python CSMS ↔ go-ocpp-sdk v1.1.0 1.6 charge point and the
+- [x] Interop test: Python CSMS ↔ go-ocpp-sdk v1.1.0 1.6 charge point and the
       reverse (`go run github.com/foecum/go-ocpp-sdk/examples/v16/...@v1.1.0`;
       CI installs Go; marked slow)
-- [ ] README and `site/`: install, quick start for both roles, supported messages
+- [x] README and `site/`: install, quick start for both roles, supported messages
       table, security profiles, logging, error handling
-- [ ] `release.yml`: `uv build`, `twine check`, publish to PyPI with trusted
+- [x] `release.yml`: `uv build`, `twine check`, publish to PyPI with trusted
       publishing on tag push (owner sets up the PyPI side)
 - [ ] Tag `v0.1.0` (ask owner first)
 
@@ -595,6 +595,10 @@ Record each decision as: date — decision — reason.
   exists in the process that queued the start (after a restart the queued messages still get the
   assigned id through the persisted local id). A crash between a delivery and the save can send a
   message twice (at-least-once delivery).
+- 2026-11-26 — Interop tests build go-ocpp-sdk v1.1.0's examples with `go install ...@v1.1.0`
+  and skip when `go` or the module download is unavailable; CI installs Go. The 1.6 examples
+  are plain CLIs (argparse) with an optional Basic password; the CSMS one calls GetConfiguration
+  back after a station connects.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 
