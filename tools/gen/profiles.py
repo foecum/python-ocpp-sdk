@@ -48,8 +48,8 @@ class Profile:
     #: CSMS); ``DataTransfer`` is sent by both.
     from_station: frozenset[str]
     descriptions: dict[str, str]
-    enums: dict[str, Named]
-    types: dict[str, Named]
+    enums: dict[str, Named] = field(default_factory=dict)
+    types: dict[str, Named] = field(default_factory=dict)
     #: ``Model.wireName`` -> minimum for an integer field (``ge``).
     int_min: dict[str, int] = field(default_factory=dict)
     #: ``Model.wireName`` -> minimum number of items of an array.
@@ -62,6 +62,24 @@ class Profile:
     member_names: dict[str, str] = field(default_factory=dict)
     #: ``wireName`` -> value used for an integer in generated doctest samples.
     sample_ints: dict[str, int] = field(default_factory=dict)
+    #: Name classes from the schemas' ``definitions`` (2.x) instead of the ``enums`` and ``types``
+    #: tables: ``IdTokenType`` -> ``IdToken``, ``StatusEnumType`` -> ``Status``.
+    definitions_naming: bool = False
+    #: Name of the CALLERROR code class (in ``ocpp_sdk.errors``) the handlers use.
+    error_codes: str = "ErrorCodeV16"
+    #: The CSMS' session class, the handlers' name for its parameter and the station's typed calls.
+    #: Directory of the appendices CSV files (relative to the repository root); ``""`` for none.
+    appendices_dir: str = ""
+    #: Suffix of the request schema file name (1.6: none, 2.x: ``Request``).
+    request_file_suffix: str = ""
+    station_module: str = "charge_point"
+    session_class: str = "ChargePoint"
+    session_param: str = "charge_point"
+    station_calls: str = "ChargePointCalls"
+    #: ``Model.wireName`` -> maximum for an integer or number field (``le``).
+    int_max: dict[str, int] = field(default_factory=dict)
+    #: number fields that accept at most one fractional digit (``Model.wireName``).
+    one_decimal: frozenset[str] = frozenset()
     #: messages with a schema that a later roadmap item generates.
     deferred: frozenset[str] = frozenset()
     #: ``Model.wireName`` -> type from ``ocpp_sdk.model`` replacing ``StrictStr`` (PEM, hex, ...).
@@ -600,4 +618,248 @@ V16 = Profile(
     sample_ints={"startPeriod": 0},
     field_types=_FIELD_TYPES_V16,
     security_events=_SECURITY_EVENTS_V16,
+)
+
+
+# ---------------------------------------------------------------------------------------------
+# OCPP 2.0.1
+# ---------------------------------------------------------------------------------------------
+
+_MODULES_V201 = (
+    Module(
+        "security",
+        "A Security",
+        ("CertificateSigned", "SecurityEventNotification", "SignCertificate"),
+        "Security",
+        "security",
+    ),
+    Module(
+        "provisioning",
+        "B Provisioning",
+        (
+            "BootNotification",
+            "GetBaseReport",
+            "GetReport",
+            "GetVariables",
+            "NotifyReport",
+            "Reset",
+            "SetNetworkProfile",
+            "SetVariables",
+        ),
+        "Provisioning",
+        "provisioning",
+    ),
+    Module(
+        "authorization",
+        "C Authorization",
+        ("Authorize", "ClearCache"),
+        "Authorization",
+        "authorization",
+    ),
+    Module(
+        "localauthlist",
+        "D Local Authorization List",
+        ("GetLocalListVersion", "SendLocalList"),
+        "LocalAuthList",
+        "local_auth_list",
+    ),
+    Module(
+        "transactions",
+        "E Transactions",
+        ("GetTransactionStatus", "TransactionEvent"),
+        "Transactions",
+        "transactions",
+    ),
+    Module(
+        "remotecontrol",
+        "F Remote Control",
+        ("RequestStartTransaction", "RequestStopTransaction", "TriggerMessage", "UnlockConnector"),
+        "RemoteControl",
+        "remote_control",
+    ),
+    Module(
+        "availability",
+        "G Availability",
+        ("ChangeAvailability", "Heartbeat", "StatusNotification"),
+        "Availability",
+        "availability",
+    ),
+    Module(
+        "reservation",
+        "H Reservation",
+        ("CancelReservation", "ReservationStatusUpdate", "ReserveNow"),
+        "Reservation",
+        "reservation",
+    ),
+    Module(
+        "tariffandcost", "I Tariff and Cost", ("CostUpdated",), "TariffAndCost", "tariff_and_cost"
+    ),
+    Module("metervalues", "J Meter Values", ("MeterValues",), "MeterValues", "meter_values"),
+    Module(
+        "smartcharging",
+        "K Smart Charging",
+        (
+            "ClearChargingProfile",
+            "ClearedChargingLimit",
+            "GetChargingProfiles",
+            "GetCompositeSchedule",
+            "NotifyChargingLimit",
+            "NotifyEVChargingNeeds",
+            "NotifyEVChargingSchedule",
+            "ReportChargingProfiles",
+            "SetChargingProfile",
+        ),
+        "SmartCharging",
+        "smart_charging",
+    ),
+    Module(
+        "firmware",
+        "L Firmware Management",
+        (
+            "FirmwareStatusNotification",
+            "PublishFirmware",
+            "PublishFirmwareStatusNotification",
+            "UnpublishFirmware",
+            "UpdateFirmware",
+        ),
+        "Firmware",
+        "firmware",
+    ),
+    Module(
+        "iso15118",
+        "M ISO 15118 Certificate Management",
+        (
+            "DeleteCertificate",
+            "Get15118EVCertificate",
+            "GetCertificateStatus",
+            "GetInstalledCertificateIds",
+            "InstallCertificate",
+        ),
+        "ISO15118",
+        "iso15118",
+    ),
+    Module(
+        "diagnostics",
+        "N Diagnostics",
+        (
+            "ClearVariableMonitoring",
+            "CustomerInformation",
+            "GetLog",
+            "GetMonitoringReport",
+            "LogStatusNotification",
+            "NotifyCustomerInformation",
+            "NotifyEvent",
+            "NotifyMonitoringReport",
+            "SetMonitoringBase",
+            "SetMonitoringLevel",
+            "SetVariableMonitoring",
+        ),
+        "Diagnostics",
+        "diagnostics",
+    ),
+    Module(
+        "displaymessage",
+        "O Display Message",
+        ("ClearDisplayMessage", "GetDisplayMessages", "NotifyDisplayMessages", "SetDisplayMessage"),
+        "DisplayMessage",
+        "display_message",
+    ),
+    Module("datatransfer", "P Data Transfer", ("DataTransfer",), "DataTransfer", "data_transfer"),
+)
+
+#: The messages whose request the Charging Station sends (OCPP 2.0.1 part 2 scenarios).
+_FROM_STATION_V201 = frozenset(
+    {
+        "Authorize",
+        "BootNotification",
+        "ClearedChargingLimit",
+        "FirmwareStatusNotification",
+        "Get15118EVCertificate",
+        "GetCertificateStatus",
+        "Heartbeat",
+        "LogStatusNotification",
+        "MeterValues",
+        "NotifyChargingLimit",
+        "NotifyCustomerInformation",
+        "NotifyDisplayMessages",
+        "NotifyEVChargingNeeds",
+        "NotifyEVChargingSchedule",
+        "NotifyEvent",
+        "NotifyMonitoringReport",
+        "NotifyReport",
+        "PublishFirmwareStatusNotification",
+        "ReportChargingProfiles",
+        "ReservationStatusUpdate",
+        "SecurityEventNotification",
+        "SignCertificate",
+        "StatusNotification",
+        "TransactionEvent",
+    }
+)
+
+_RULES_V201 = {
+    "SendLocalListRequest": """
+        if self.update_type == Update.FULL:
+            for index, entry in enumerate(self.local_authorization_list or []):
+                if entry.id_token_info is None:
+                    raise needed_error(f"localAuthorizationList.{index}.idTokenInfo")
+    """,
+    "RequestStartTransactionRequest": """
+        profile = self.charging_profile
+        purpose = profile.charging_profile_purpose if profile is not None else None
+        if purpose is not None and purpose != ChargingProfilePurpose.TX_PROFILE:
+            raise rule_error("chargingProfile.chargingProfilePurpose", "must be TxProfile")
+    """,
+    "ChargingProfile": """
+        if (
+            self.transaction_id
+            and self.charging_profile_purpose != ChargingProfilePurpose.TX_PROFILE
+        ):
+            raise rule_error(
+                "transactionId", "only allowed when chargingProfilePurpose is TxProfile"
+            )
+    """,
+    "VariableCharacteristics": """
+        lists = (
+            Data.OPTION_LIST,
+            Data.MEMBER_LIST,
+            Data.SEQUENCE_LIST,
+        )
+        if not self.values_list and self.data_type in lists:
+            raise needed_error("valuesList")
+    """,
+    "PublishFirmwareStatusNotificationRequest": """
+        if self.status == PublishFirmwareStatus.PUBLISHED and not self.location:
+            raise needed_error("location")
+    """,
+}
+
+V201 = Profile(
+    version="2.0.1",
+    package="v201",
+    schema_dir="docs/spec/2.0.1/schemas",
+    request_suffix="Request",
+    response_suffix="Response",
+    modules=_MODULES_V201,
+    from_station=_FROM_STATION_V201,
+    descriptions={},
+    definitions_naming=True,
+    appendices_dir="docs/spec/2.0.1/Appendices_CSV_v1.5",
+    request_file_suffix="Request",
+    error_codes="ErrorCodeV2",
+    station_module="charging_station",
+    session_class="ChargingStation",
+    session_param="charging_station",
+    station_calls="ChargingStationCalls",
+    int_min={
+        "NotifyChargingLimitRequest.evseId": 1,
+        "NotifyEVChargingScheduleRequest.evseId": 1,
+        "RequestStartTransactionRequest.evseId": 1,
+        "ChargingSchedulePeriod.phaseToUse": 1,
+        "SetMonitoringLevelRequest.severity": 0,
+    },
+    int_max={"ChargingSchedulePeriod.phaseToUse": 3, "SetMonitoringLevelRequest.severity": 9},
+    one_decimal=frozenset({"ChargingSchedulePeriod.limit"}),
+    empty_allowed=frozenset({"SetVariableData.attributeValue"}),
+    rules=_RULES_V201,
 )

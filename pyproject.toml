@@ -67,6 +67,7 @@ select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["SIM117", "ASYNC109", "ASYNC110"]
 "src/ocpp_sdk/v*/*_handlers.py" = ["ASYNC109"]
+"src/ocpp_sdk/v*/appendices.py" = ["E501"] # data tables with long descriptions
 
 [tool.mypy]
 strict = true

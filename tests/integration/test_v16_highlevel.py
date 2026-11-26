@@ -256,7 +256,7 @@ async def test_handler_errors(csms: tuple[CSMS, CsmsCoreHandler]) -> None:
                 return None  # type: ignore[return-value]
             raise RuntimeError("secret detail")
 
-    server._config.core = Failing()
+    server._core._config.core = Failing()  # type: ignore[attr-defined]
     async with ChargePoint(url(server), ping_interval=None, reconnect=None) as cp:
         with pytest.raises(CallError) as info:
             await cp.authorize(AuthorizeRequest(id_tag="SPECIFIC"))

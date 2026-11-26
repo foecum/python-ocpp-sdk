@@ -5,7 +5,13 @@
 from enum import StrEnum
 from typing import Self
 
-from pydantic import Field, StrictBool, StrictInt, StrictStr, model_validator
+from pydantic import (
+    Field,
+    StrictBool,
+    StrictInt,
+    StrictStr,
+    model_validator,
+)
 
 from ocpp_sdk.model import (
     AbsoluteURI,
@@ -913,7 +919,8 @@ class ChargingSchedule(OCPPModel):
         duration: Optional. At least 0.
         start_schedule: Optional. A timestamp.
         charging_rate_unit: Required. A ``ChargingRateUnitType``.
-        charging_schedule_period: Required. A list of ChargingSchedulePeriod. At least 1 item.
+        charging_schedule_period: Required. A list of ChargingSchedulePeriod. At least 1
+            item.
         min_charging_rate: Optional. At most one fractional digit.
 
     Example:

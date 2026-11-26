@@ -5,7 +5,11 @@
 from enum import StrEnum
 from typing import ClassVar
 
-from pydantic import Field, StrictInt, StrictStr
+from pydantic import (
+    Field,
+    StrictInt,
+    StrictStr,
+)
 
 from ocpp_sdk.model import (
     DateTime,

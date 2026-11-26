@@ -449,22 +449,22 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 8 — OCPP 2.0.1
 
-- [ ] Post a plan for 2.0.1 and wait for OK
-- [ ] Block table and direction table in `profiles.py` (64 messages: 24 from the
+- [x] Post a plan for 2.0.1 and wait for OK
+- [x] Block table and direction table in `profiles.py` (64 messages: 24 from the
       station, 39 from the CSMS, DataTransfer both)
-- [ ] Generated `v201/types.py` and one module per functional block:
-  - [ ] A Security  - [ ] B Provisioning  - [ ] C Authorization
-  - [ ] D Local Authorization List  - [ ] E Transactions  - [ ] F Remote Control
-  - [ ] G Availability  - [ ] H Reservation  - [ ] I Tariff and Cost
-  - [ ] J Meter Values  - [ ] K Smart Charging  - [ ] L Firmware Management
-  - [ ] M ISO 15118 Certificate Management  - [ ] N Diagnostics
-  - [ ] O Display Message  - [ ] P Data Transfer
-- [ ] Spec-text rules for 2.0.1 in `profiles.py`
-- [ ] Generated `v201/appendices.py` (components, variables, units, reason codes,
+- [x] Generated `v201/types.py` and one module per functional block:
+  - [x] A Security  - [x] B Provisioning  - [x] C Authorization
+  - [x] D Local Authorization List  - [x] E Transactions  - [x] F Remote Control
+  - [x] G Availability  - [x] H Reservation  - [x] I Tariff and Cost
+  - [x] J Meter Values  - [x] K Smart Charging  - [x] L Firmware Management
+  - [x] M ISO 15118 Certificate Management  - [x] N Diagnostics
+  - [x] O Display Message  - [x] P Data Transfer
+- [x] Spec-text rules for 2.0.1 in `profiles.py`
+- [x] Generated `v201/appendices.py` (components, variables, units, reason codes,
       security events) as string constants; messages keep plain strings
-- [ ] Generated handlers; `ChargingStation`, `CSMS`, `Config` for 2.0.1
-- [ ] Schema mutation tests for every message
-- [ ] Integration test: boot, authorize, TransactionEvent (Started/Updated/Ended),
+- [x] Generated handlers; `ChargingStation`, `CSMS`, `Config` for 2.0.1
+- [x] Schema mutation tests for every message
+- [x] Integration test: boot, authorize, TransactionEvent (Started/Updated/Ended),
       RequestStartTransaction from CSMS, GetVariables/SetVariables
 - [ ] `examples/v201/*` with smoke test; interop test against go-ocpp-sdk 2.0.1
 - [ ] README and site update; tag `v0.2.0` (ask owner first)
@@ -610,6 +610,21 @@ Record each decision as: date — decision — reason.
   `ocpp_sdk.model` and are assigned to fields by `field_types` in `profiles.py`.
   The security event list and its critical flags come from whitepaper edition 3 (checked
   against the PDF); `AuthorizationKey` helpers are in `transport.auth`.
+- 2026-11-26 — 2.0.1 (plan recorded here, approval waived). The generator names classes from
+  each schema's `definitions` (`IdTokenType` -> `IdToken`, `StatusEnumType` -> `Status`; an enum
+  whose name an object has keeps `Enum`, e.g. `IdTokenEnum`), so `Profile.definitions_naming`
+  replaces the 1.6 location tables; the same definition must be identical in every schema that
+  has it (descriptions and `javaType` aside). Docs come from the schemas' descriptions. A schema
+  object without `additionalProperties` (CustomData) keeps unknown properties
+  (`extra="allow"`); wire names whose `to_camel` differs (`responderURL`) get an explicit alias.
+  Enum names such as `Data` and `Update` follow the stripping rule literally. Blocks, directions,
+  handler names and spec-text rules are in `profiles.py` (rules from go-ocpp-sdk). The generated
+  `appendices.py` has namespace classes (`Component`, `Variable`, `Unit`, `ReasonCode`,
+  `SecurityEvent`) and tuples/tables from the CSV files. `ChargingStation` and `CSMS` are thin
+  wrappers around `_internal/lifecycle.py` (also used by the 1.6 classes now); the CSMS keeps
+  `charge_point_ids()` / `charge_point(id)` in 2.0.1 and its session class is `ChargingStation`.
+  Tests build a full sample payload from each official schema (`tests/schema/samples.py`) and
+  mutate every field (`mutlib.py`, 9,580 mutations) instead of keeping 128 fixture files.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 

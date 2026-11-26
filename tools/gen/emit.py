@@ -109,6 +109,8 @@ class _Ctx:
             return ("lit", "1.5")
         if f.kind == "bool":
             return ("lit", "False")
+        if f.kind == "any":
+            return ("lit", '"x"')
         if f.kind == "enum":
             assert f.ref is not None
             return ("lit", f'"{self.ir.enums[f.ref].values[0]}"')
@@ -128,6 +130,8 @@ class _Ctx:
 def _scalar(f: FieldIR) -> str:
     if f.type_name:
         return f.type_name
+    if f.kind == "any":
+        return "Any"
     return {
         "str": "StrictStr",
         "uri": "AbsoluteURI",
@@ -164,19 +168,29 @@ def _annotation(f: FieldIR) -> tuple[str, list[str]]:
             args.append(f"max_length={f.max_length}")
         if f.ge is not None:
             args.append(f"ge={f.ge}")
+        if f.le is not None:
+            args.append(f"le={f.le}")
+    if f.kind == "array" and f.max_items is not None:
+        args.append(f"max_length={f.max_items}")
     return base, args
 
 
 def _field_line(f: FieldIR) -> str:
     base, args = _annotation(f)
+    if f.alias:
+        args.insert(0, f'alias="{f.alias}"')
     if f.required:
         rhs = f" = Field({', '.join(args)})" if args else ""
         return f"{f.attr}: {base}{rhs}"
+    if f.kind == "any":
+        return f"{f.attr}: Any = Field(default=None)"
     return f"{f.attr}: {base} | None = Field({', '.join(['default=None', *args])})"
 
 
-def _field_doc(f: FieldIR) -> str:
-    bits = ["Required." if f.required else "Optional."]
+def _field_doc(f: FieldIR) -> list[str]:
+    """The ``Attributes:`` entry of a field, wrapped (the schema's description comes first)."""
+    bits = [f.doc] if f.doc else []
+    bits.append("Required." if f.required else "Optional.")
     if f.kind == "array":
         assert f.item is not None
         bits.append(f"A list of {f.item.ref or f.item.kind}.")
@@ -194,17 +208,23 @@ def _field_doc(f: FieldIR) -> str:
         bits.append(f"At most {f.max_length} characters.")
     if f.ge is not None:
         bits.append(f"At least {f.ge}.")
-    return f"{f.attr}: {' '.join(bits)}"
+    if f.le is not None:
+        bits.append(f"At most {f.le}.")
+    if f.max_items is not None:
+        bits.append(f"At most {f.max_items} items.")
+    return textwrap.wrap(f"{f.attr}: {' '.join(bits)}", width=84, subsequent_indent="    ")
 
 
 # -- classes -----------------------------------------------------------------
 
 
 def _doc(summary: str, fields: list[FieldIR], example: list[str], indent: str = "    ") -> str:
-    lines = [summary]
+    if '"""' in summary or any('"""' in f.doc for f in fields):
+        raise ValueError("a description contains triple quotes")
+    lines = textwrap.wrap(summary, width=88) or [summary]
     if fields:
         lines += ["", "Attributes:"]
-        lines += [f"    {_field_doc(f)}" for f in fields]
+        lines += [f"    {ln}" for f in fields for ln in _field_doc(f)]
     lines += ["", "Example:", *(f"    {e}" for e in example)]
     body = "\n".join(f"{indent}{ln}".rstrip().replace("\\", "\\\\") for ln in lines)
     return f'{indent}"""{body.lstrip()}\n{indent}"""'
@@ -238,12 +258,14 @@ def _model_class(m: ModelIR, ctx: _Ctx, *, message: bool) -> str:
         example = [*_doctest(m.name, sample), ">>> type(value).__name__", f"'{m.name}'"]
     summary = m.doc or f"The {m.name} datatype."
     out = [f"class {m.name}(OCPPModel):", _doc(summary, m.fields, example)]
+    if m.extra_allow:
+        out += ["", '    model_config = ConfigDict(extra="allow")', ""]
     if message:
         out.append(f'    ACTION: ClassVar[str] = "{m.action}"')
         out.append("")
     for f in m.fields:
         out.append(f"    {_field_line(f)}")
-    if not m.fields and not message:
+    if not m.fields and not message and not m.extra_allow:
         out.append("    pass")
     out += _rules(m)
     return "\n".join(out)
@@ -262,9 +284,10 @@ def _enum_class(e: EnumIR, profile: Profile) -> str:
 
 _IMPORTS = """\
 from enum import StrEnum
-from typing import Annotated, ClassVar, Self
+from typing import Annotated, Any, ClassVar, Self
 
-from pydantic import Field, StrictBool, StrictInt, StrictStr, StringConstraints, model_validator
+from pydantic import ConfigDict, Field, StrictBool, StrictInt, StrictStr
+from pydantic import StringConstraints, model_validator
 
 from ocpp_sdk.model import AbsoluteURI, Base64, DateTime, Hex, HexBytes, Number, OCPPModel
 from ocpp_sdk.model import OneDecimal, PemCertificate, PemCertificates, PemCsr

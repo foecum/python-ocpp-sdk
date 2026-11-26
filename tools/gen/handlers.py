@@ -14,7 +14,7 @@ SIDES = ("charge_point", "csms")
 
 def snake(action: str) -> str:
     """``BootNotification`` -> ``boot_notification``."""
-    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", action).lower()
+    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_", action).lower()
 
 
 _TITLE = {"charge_point": "Charge Point", "csms": "Central System"}
@@ -34,14 +34,15 @@ def split(profile: Profile, ir: SchemaIR, side: str) -> tuple[list[MessageIR], l
     return received, sent
 
 
-def _signature(side: str, m: MessageIR) -> str:
+def _signature(profile: Profile, side: str, m: MessageIR) -> str:
     result = f"{m.response.name} | Awaitable[{m.response.name}]"
     if side == "csms":
-        return f"(self, charge_point: ChargePoint, request: {m.request.name}) -> {result}"
+        session = f"{profile.session_param}: {profile.session_class}"
+        return f"(self, {session}, request: {m.request.name}) -> {result}"
     return f"(self, request: {m.request.name}) -> {result}"
 
 
-def _protocol(side: str, module: Module, messages: list[MessageIR]) -> str:
+def _protocol(profile: Profile, side: str, module: Module, messages: list[MessageIR]) -> str:
     name = f"{module.handler}Handler"
     sender = "Central System" if side == "csms" else "Charge Point"
     other = "Charge Point" if side == "csms" else "Central System"
@@ -61,14 +62,14 @@ def _protocol(side: str, module: Module, messages: list[MessageIR]) -> str:
     for m in messages:
         lines += [
             "",
-            f"    def on_{snake(m.action)}{_signature(side, m)}:",
+            f"    def on_{snake(m.action)}{_signature(profile, side, m)}:",
             f'        """{m.doc}"""',
             "        ...",
         ]
     return "\n".join(lines)
 
 
-def _unimplemented(side: str, module: Module, messages: list[MessageIR]) -> str:
+def _unimplemented(profile: Profile, side: str, module: Module, messages: list[MessageIR]) -> str:
     base = f"{module.handler}Handler"
     name = f"Unimplemented{base}"
     lines = [
@@ -87,9 +88,11 @@ def _unimplemented(side: str, module: Module, messages: list[MessageIR]) -> str:
     for m in messages:
         lines += [
             "",
-            f"    def on_{snake(m.action)}{_signature(side, m)}:",
+            f"    def on_{snake(m.action)}{_signature(profile, side, m)}:",
             '        """Answers ``NotSupported``."""',
-            f'        raise CallError(ErrorCodeV16.NOT_SUPPORTED, "{m.action} is not supported")',
+            "        raise CallError(",
+            f'            {profile.error_codes}.NOT_SUPPORTED, "{m.action} is not supported"',
+            "        )",
         ]
     return "\n".join(lines)
 
@@ -163,7 +166,7 @@ def render(profile: Profile, ir: SchemaIR, side: str) -> str:
         got = [m for m in received if m.module == module.name]
         if not got:
             continue
-        parts += [_protocol(side, module, got), _unimplemented(side, module, got)]
+        parts += [_protocol(profile, side, module, got), _unimplemented(profile, side, module, got)]
         names += [f"{module.handler}Handler", f"Unimplemented{module.handler}Handler"]
         dispatch += [
             f'    "{m.action}": ("{module.config_field}", "on_{snake(m.action)}"),' for m in got
@@ -174,13 +177,13 @@ def render(profile: Profile, ir: SchemaIR, side: str) -> str:
     if side == "charge_point":
         parts.append(
             _calls(
-                "ChargePointCalls",
+                profile.station_calls,
                 "Typed methods for the messages a Charge Point sends.",
                 sent,
                 by_id=False,
             )
         )
-        names.append("ChargePointCalls")
+        names.append(profile.station_calls)
     else:
         parts.append(
             _calls(
@@ -210,7 +213,10 @@ def render(profile: Profile, ir: SchemaIR, side: str) -> str:
         for mod in profile.modules
     )
     checking = (
-        ["\nif TYPE_CHECKING:", "    from ocpp_sdk.v16.csms import ChargePoint\n"]
+        [
+            "\nif TYPE_CHECKING:",
+            f"    from ocpp_sdk.{profile.package}.csms import {profile.session_class}\n",
+        ]
         if side == "csms"
         else [""]
     )
@@ -222,7 +228,7 @@ def render(profile: Profile, ir: SchemaIR, side: str) -> str:
         "from collections.abc import Awaitable",
         "from typing import TYPE_CHECKING, Protocol, cast\n",
         "from pydantic import BaseModel\n",
-        "from ocpp_sdk.errors import CallError, ErrorCodeV16",
+        f"from ocpp_sdk.errors import CallError, {profile.error_codes}",
         mods,
         *checking,
         f"__all__ = {_sorted_all(names)}\n",

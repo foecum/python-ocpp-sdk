@@ -11,13 +11,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tools.gen import emit, handlers, schema
-from tools.gen.profiles import V16, Profile
+from tools.gen import appendices, emit, handlers, schema
+from tools.gen.profiles import V16, V201, Profile
 
 ROOT = schema.ROOT
 SRC = ROOT / "src" / "ocpp_sdk"
 
-PROFILES: tuple[Profile, ...] = (V16,)
+PROFILES: tuple[Profile, ...] = (V16, V201)
 
 
 def _format(path: str, source: str) -> str:
@@ -56,7 +56,10 @@ def generate() -> dict[Path, str]:
                 profile, ir, module.name, module.title
             )
         for side in handlers.SIDES:
-            files[out / f"{side}_handlers.py"] = handlers.render(profile, ir, side)
+            prefix = profile.station_module if side == "charge_point" else side
+            files[out / f"{prefix}_handlers.py"] = handlers.render(profile, ir, side)
+        if profile.appendices_dir:
+            files[out / "appendices.py"] = appendices.render(profile)
     return {p: _format(str(p.relative_to(ROOT)), text) for p, text in files.items()}
 
 
