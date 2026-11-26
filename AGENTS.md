@@ -365,7 +365,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 1 — Core (`errors`, `datetime`, `ocppj`)
 
-- [ ] Exception hierarchy, `CallError`, `ErrorCode` sets for 1.6 and 2.0.1/2.1
+- [x] Exception hierarchy, `CallError`, `ErrorCode` sets for 1.6 and 2.0.1/2.1
       (note spelling differences)
 - [ ] `ocpp_sdk.datetime` (section 4 rules)
 - [ ] `ocppj.frames`: CALL `[2, id, action, payload]`, CALLRESULT `[3, id, payload]`,
@@ -517,6 +517,27 @@ Record each decision as: date — decision — reason.
   deviation needs the owner's OK and an entry here.
 - 2026-11-26 — Documentation is a self-contained static site in `site/` (no build
   step), as in go-ocpp-sdk, instead of a generated docs site.
+
+- 2026-11-26 — Owner: do not ask for approval before each phase; proceed through the
+  roadmap and ask only clarifying questions (overrides 6.2 "wait for the owner's OK").
+- 2026-11-26 — Added `ocpp_sdk/versions.py` (`Version` StrEnum = subprotocol names),
+  used by errors, frames, registry and endpoint.
+- 2026-11-26 — Frame-level errors (not JSON, not an array, bad element types,
+  unreadable id) answer `FormationViolation` (1.6) / `RpcFrameworkError` (2.x). Spec
+  PDFs are not in `docs/spec/` yet, so this is from memory of OCPP-J; re-check when
+  the specs are added. A message id over 36 characters counts as unreadable (`-1`).
+- 2026-11-26 — A CALLERROR with four elements (no details) is accepted; real stations
+  omit it. Malformed CALLRESULT/CALLERROR frames are never answered; if the id
+  matches the outstanding call, that call fails with `ValidationError`.
+- 2026-11-26 — Pydantic error → CALLERROR code: missing / too_short / too_long →
+  `OccurrenceConstraintViolation`; wrong JSON type → `TypeConstraintViolation`;
+  everything else (length, enum, range, date-time) → `PropertyConstraintViolation`.
+  Only the field path and error type are sent, never the offending value.
+- 2026-11-26 — `Endpoint.feed()` is synchronous (it only schedules tasks); the queue
+  limit counts calls not yet picked up by the sender, so with the default of 1,000
+  at most 1,001 calls can be in flight. Added `QueueFullError` to `errors`.
+- 2026-11-26 — pytest runs doctests (`--doctest-modules`) over `src` too, so the
+  examples in docstrings stay correct.
 
 ## 9. Known gaps / skipped spec items
 
