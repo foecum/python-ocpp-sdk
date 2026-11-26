@@ -525,7 +525,8 @@ Record each decision as: date — decision — reason.
 - 2026-11-26 — Frame-level errors (not JSON, not an array, bad element types,
   unreadable id) answer `FormationViolation` (1.6) / `RpcFrameworkError` (2.x). Spec
   PDFs are not in `docs/spec/` yet, so this is from memory of OCPP-J; re-check when
-  the specs are added. A message id over 36 characters counts as unreadable (`-1`).
+  the specs are added. Re-checked against the 1.6 and 2.0.1 OCPP-J specs: `FormationViolation`
+  (1.6) and `RpcFrameworkError` (2.0.1, "MessageId could not be read") are right. A message id over 36 characters counts as unreadable (`-1`).
 - 2026-11-26 — A CALLERROR with four elements (no details) is accepted; real stations
   omit it. Malformed CALLRESULT/CALLERROR frames are never answered; if the id
   matches the outstanding call, that call fails with `ValidationError`.
