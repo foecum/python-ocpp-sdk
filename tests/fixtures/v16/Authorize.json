@@ -1,0 +1,12 @@
+{
+  "request": {
+    "idTag": "04A2B3C4"
+  },
+  "response": {
+    "idTagInfo": {
+      "expiryDate": "2026-01-01T00:00:00Z",
+      "parentIdTag": "PARENT01",
+      "status": "Accepted"
+    }
+  }
+}

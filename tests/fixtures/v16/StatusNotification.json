@@ -1,0 +1,12 @@
+{
+  "request": {
+    "connectorId": 1,
+    "errorCode": "NoError",
+    "info": "all fine",
+    "status": "Available",
+    "timestamp": "2025-03-14T09:26:53Z",
+    "vendorId": "com.acme",
+    "vendorErrorCode": "E42"
+  },
+  "response": {}
+}

@@ -1,0 +1,9 @@
+{
+  "request": {
+    "connectorId": 1,
+    "type": "Inoperative"
+  },
+  "response": {
+    "status": "Scheduled"
+  }
+}

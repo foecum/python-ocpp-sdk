@@ -1,0 +1,28 @@
+{
+  "request": {
+    "connectorId": 1,
+    "transactionId": 1234,
+    "meterValue": [
+      {
+        "timestamp": "2025-03-14T09:26:53Z",
+        "sampledValue": [
+          {
+            "value": "1500",
+            "context": "Sample.Periodic",
+            "format": "Raw",
+            "measurand": "Energy.Active.Import.Register",
+            "phase": "L1-N",
+            "location": "Outlet",
+            "unit": "Wh"
+          },
+          {
+            "value": "230.1",
+            "measurand": "Voltage",
+            "unit": "V"
+          }
+        ]
+      }
+    ]
+  },
+  "response": {}
+}

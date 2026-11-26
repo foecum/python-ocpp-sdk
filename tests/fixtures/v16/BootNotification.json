@@ -1,0 +1,18 @@
+{
+  "request": {
+    "chargePointVendor": "Acme",
+    "chargePointModel": "X1",
+    "chargePointSerialNumber": "SN-0001",
+    "chargeBoxSerialNumber": "CB-0001",
+    "firmwareVersion": "1.2.3",
+    "iccid": "8931088888888888888",
+    "imsi": "204041234567890",
+    "meterType": "EM-3",
+    "meterSerialNumber": "MS-77"
+  },
+  "response": {
+    "status": "Accepted",
+    "currentTime": "2025-03-14T09:26:53Z",
+    "interval": 300
+  }
+}

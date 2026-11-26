@@ -1,0 +1,8 @@
+{
+  "request": {
+    "transactionId": 1234
+  },
+  "response": {
+    "status": "Rejected"
+  }
+}

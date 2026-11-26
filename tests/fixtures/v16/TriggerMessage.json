@@ -1,0 +1,9 @@
+{
+  "request": {
+    "requestedMessage": "StatusNotification",
+    "connectorId": 1
+  },
+  "response": {
+    "status": "NotImplemented"
+  }
+}

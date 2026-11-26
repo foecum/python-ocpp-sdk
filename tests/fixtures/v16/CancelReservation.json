@@ -1,0 +1,8 @@
+{
+  "request": {
+    "reservationId": 5
+  },
+  "response": {
+    "status": "Accepted"
+  }
+}

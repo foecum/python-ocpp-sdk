@@ -1,0 +1,12 @@
+{
+  "request": {
+    "connectorId": 1,
+    "expiryDate": "2025-03-14T11:00:00Z",
+    "idTag": "04A2B3C4",
+    "parentIdTag": "PARENT01",
+    "reservationId": 5
+  },
+  "response": {
+    "status": "Occupied"
+  }
+}

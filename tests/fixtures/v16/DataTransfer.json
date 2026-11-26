@@ -1,0 +1,11 @@
+{
+  "request": {
+    "vendorId": "com.acme",
+    "messageId": "ping",
+    "data": "{\"a\":1}"
+  },
+  "response": {
+    "status": "UnknownMessageId",
+    "data": "pong"
+  }
+}

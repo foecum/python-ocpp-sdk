@@ -1,0 +1,25 @@
+{
+  "request": {
+    "listVersion": 8,
+    "localAuthorizationList": [
+      {
+        "idTag": "A1",
+        "idTagInfo": {
+          "expiryDate": "2026-01-01T00:00:00Z",
+          "parentIdTag": "PARENT01",
+          "status": "Accepted"
+        }
+      },
+      {
+        "idTag": "B2",
+        "idTagInfo": {
+          "status": "Blocked"
+        }
+      }
+    ],
+    "updateType": "Differential"
+  },
+  "response": {
+    "status": "Accepted"
+  }
+}

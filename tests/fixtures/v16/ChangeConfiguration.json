@@ -1,0 +1,9 @@
+{
+  "request": {
+    "key": "MeterValueSampleInterval",
+    "value": "60"
+  },
+  "response": {
+    "status": "RebootRequired"
+  }
+}

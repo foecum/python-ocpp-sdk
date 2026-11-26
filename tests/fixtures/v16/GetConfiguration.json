@@ -1,0 +1,24 @@
+{
+  "request": {
+    "key": [
+      "HeartbeatInterval",
+      "MeterValueSampleInterval"
+    ]
+  },
+  "response": {
+    "configurationKey": [
+      {
+        "key": "HeartbeatInterval",
+        "readonly": false,
+        "value": "300"
+      },
+      {
+        "key": "NumberOfConnectors",
+        "readonly": true
+      }
+    ],
+    "unknownKey": [
+      "Nope"
+    ]
+  }
+}

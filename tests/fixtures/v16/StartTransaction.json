@@ -1,0 +1,17 @@
+{
+  "request": {
+    "connectorId": 1,
+    "idTag": "04A2B3C4",
+    "meterStart": 100,
+    "reservationId": 5,
+    "timestamp": "2025-03-14T09:26:53Z"
+  },
+  "response": {
+    "idTagInfo": {
+      "expiryDate": "2026-01-01T00:00:00Z",
+      "parentIdTag": "PARENT01",
+      "status": "Accepted"
+    },
+    "transactionId": 1234
+  }
+}

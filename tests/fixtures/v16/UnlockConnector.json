@@ -1,0 +1,8 @@
+{
+  "request": {
+    "connectorId": 1
+  },
+  "response": {
+    "status": "Unlocked"
+  }
+}

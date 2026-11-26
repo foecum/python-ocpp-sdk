@@ -1,0 +1,36 @@
+{
+  "request": {
+    "connectorId": 1,
+    "idTag": "04A2B3C4",
+    "chargingProfile": {
+      "chargingProfileId": 11,
+      "transactionId": 1234,
+      "stackLevel": 2,
+      "chargingProfilePurpose": "TxProfile",
+      "chargingProfileKind": "Recurring",
+      "recurrencyKind": "Daily",
+      "validFrom": "2025-03-14T09:26:53Z",
+      "validTo": "2026-03-14T09:26:53Z",
+      "chargingSchedule": {
+        "duration": 7200,
+        "startSchedule": "2025-03-14T09:26:53Z",
+        "chargingRateUnit": "A",
+        "chargingSchedulePeriod": [
+          {
+            "startPeriod": 0,
+            "limit": 16.0,
+            "numberPhases": 3
+          },
+          {
+            "startPeriod": 3600,
+            "limit": 10.5
+          }
+        ],
+        "minChargingRate": 6.0
+      }
+    }
+  },
+  "response": {
+    "status": "Accepted"
+  }
+}

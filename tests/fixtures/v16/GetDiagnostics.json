@@ -1,0 +1,12 @@
+{
+  "request": {
+    "location": "ftp://files.example.com/diag",
+    "retries": 3,
+    "retryInterval": 60,
+    "startTime": "2025-03-14T09:26:53Z",
+    "stopTime": "2025-03-14T10:26:53.500Z"
+  },
+  "response": {
+    "fileName": "diag-2025-03-14.zip"
+  }
+}

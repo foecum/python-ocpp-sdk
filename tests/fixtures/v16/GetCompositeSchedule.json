@@ -1,0 +1,29 @@
+{
+  "request": {
+    "connectorId": 1,
+    "duration": 3600,
+    "chargingRateUnit": "W"
+  },
+  "response": {
+    "status": "Accepted",
+    "connectorId": 1,
+    "scheduleStart": "2025-03-14T09:26:53Z",
+    "chargingSchedule": {
+      "duration": 7200,
+      "startSchedule": "2025-03-14T09:26:53Z",
+      "chargingRateUnit": "W",
+      "chargingSchedulePeriod": [
+        {
+          "startPeriod": 0,
+          "limit": 16.0,
+          "numberPhases": 3
+        },
+        {
+          "startPeriod": 3600,
+          "limit": 10.5
+        }
+      ],
+      "minChargingRate": 6.0
+    }
+  }
+}

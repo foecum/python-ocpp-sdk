@@ -400,8 +400,8 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
       up-to-date test
 - [x] Generated 1.6 types, enums and messages for all six feature profiles
       (28 messages), with the 1.6 spec-text rules from section 4
-- [ ] Round-trip test for every message with sample payloads
-- [ ] Schema mutation tests against the official 1.6 schemas (`tests/schema`)
+- [x] Round-trip test for every message with sample payloads
+- [x] Schema mutation tests against the official 1.6 schemas (`tests/schema`)
 
 ### Phase 4 — High-level API for 1.6
 
@@ -572,6 +572,9 @@ Record each decision as: date — decision — reason.
   says properties without a type are `Any`; that applies to the 2.x schemas where `data` has no
   type). `docs/spec/go.mod` (Go-only) and the Go copies `docs/api-review.md` and
   `docs/benchmarks.md` are not committed.
+- 2026-11-26 — A JSON `null` for an optional field is accepted and read as absent (as
+  go-ocpp-sdk does); `null` for a required field or array item is rejected. The schemas
+  forbid null everywhere, so the mutation tests do not try it on optional fields.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 

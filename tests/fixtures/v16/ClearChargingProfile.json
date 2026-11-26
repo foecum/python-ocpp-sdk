@@ -1,0 +1,11 @@
+{
+  "request": {
+    "id": 11,
+    "connectorId": 1,
+    "chargingProfilePurpose": "TxDefaultProfile",
+    "stackLevel": 2
+  },
+  "response": {
+    "status": "Unknown"
+  }
+}

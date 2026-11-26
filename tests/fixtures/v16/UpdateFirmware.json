@@ -1,0 +1,9 @@
+{
+  "request": {
+    "location": "https://files.example.com/fw-1.2.4.bin",
+    "retries": 2,
+    "retrieveDate": "2025-03-14T09:26:53Z",
+    "retryInterval": 30
+  },
+  "response": {}
+}
