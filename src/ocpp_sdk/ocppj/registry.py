@@ -20,11 +20,11 @@ Example:
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from typing import Any
 
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
+from pydantic_core import ErrorDetails
 
 from ocpp_sdk.errors import CallError, ValidationError, code_for_version
 from ocpp_sdk.versions import Version
@@ -44,7 +44,7 @@ def _action_of(model: type[BaseModel]) -> str:
 
 def _classify(error_type: str) -> str:
     """Map a Pydantic error type to the (2.x spelling of the) CALLERROR code."""
-    if error_type in ("missing", "too_short", "too_long"):
+    if error_type in ("missing", "too_short", "too_long", "ocpp_needed"):
         return "OccurrenceConstraintViolation"
     if error_type.startswith(("datetime", "date", "time")):
         return "PropertyConstraintViolation"
@@ -53,13 +53,21 @@ def _classify(error_type: str) -> str:
     return "PropertyConstraintViolation"
 
 
-def _field(loc: Iterable[Any]) -> str:
-    return ".".join(str(part) for part in loc) or "payload"
+def _field(error: ErrorDetails) -> str:
+    """The JSON path of an error; rules raised by a model add the field they judge."""
+    parts = [str(part) for part in error["loc"]]
+    inner = (error.get("ctx") or {}).get("field") if error["type"].startswith("ocpp_") else None
+    if isinstance(inner, str):
+        parts.append(inner)
+    return ".".join(parts) or "payload"
+
+
+def _errors(exc: PydanticValidationError) -> list[ErrorDetails]:
+    return exc.errors(include_url=False, include_input=False)
 
 
 def _issues(exc: PydanticValidationError) -> list[dict[str, Any]]:
-    errors = exc.errors(include_url=False, include_input=False, include_context=False)
-    return [{"field": _field(e["loc"]), "type": e["type"]} for e in errors[:_MAX_ISSUES]]
+    return [{"field": _field(e), "type": e["type"]} for e in _errors(exc)[:_MAX_ISSUES]]
 
 
 class Registry:
@@ -113,8 +121,8 @@ class Registry:
         try:
             return model.model_validate(payload)
         except PydanticValidationError as exc:
-            first = exc.errors(include_url=False, include_input=False, include_context=False)[0]
-            description = f"{_field(first['loc'])}: {first['msg']}"[:_MAX_DESCRIPTION]
+            first = _errors(exc)[0]
+            description = f"{_field(first)}: {first['msg']}"[:_MAX_DESCRIPTION]
             raise CallError(
                 code_for_version(_classify(first["type"]), self._version),
                 description,

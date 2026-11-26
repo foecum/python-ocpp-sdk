@@ -17,6 +17,6 @@ jobs:
       - run: uv sync --all-groups --python ${{ matrix.python-version }}
       - run: uv run ruff format --check .
       - run: uv run ruff check .
-      - run: uv run mypy src tests scripts
+      - run: uv run mypy src tests tools scripts
       - run: uv run pytest --cov=ocpp_sdk --cov-branch --cov-report=json
       - run: uv run python scripts/coverage.py

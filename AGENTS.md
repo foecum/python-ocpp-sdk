@@ -396,9 +396,9 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 3 — Generator and OCPP 1.6 models
 
-- [ ] `tools/gen` reading schemas + `profiles.py`; generated-file header;
+- [x] `tools/gen` reading schemas + `profiles.py`; generated-file header;
       up-to-date test
-- [ ] Generated 1.6 types, enums and messages for all six feature profiles
+- [x] Generated 1.6 types, enums and messages for all six feature profiles
       (28 messages), with the 1.6 spec-text rules from section 4
 - [ ] Round-trip test for every message with sample payloads
 - [ ] Schema mutation tests against the official 1.6 schemas (`tests/schema`)
@@ -552,6 +552,26 @@ Record each decision as: date — decision — reason.
   their handlers *before* the listener stops, so a handshake that finishes during
   shutdown reaches our handler and is closed with 1001 (websockets itself would
   answer 503 once the listener is closed). `close_timeout` defaults to 5 s.
+- 2026-11-26 — 1.6 models are generated from `docs/spec/1.6/schemas/json` (draft-04,
+  inline enums and objects, no `$ref`). The schemas name nothing, so `profiles.py` maps
+  each schema location to a class or enum name (go-ocpp-sdk's names; spec spelling such as
+  `ChargingProfilePurposeType`). The generator fails on an unnamed enum/object, an
+  unsupported schema keyword, a schema in no module (the security extension is listed as
+  `deferred` until phase 7) or a table entry that matches nothing.
+- 2026-11-26 — Generated code goes through `ruff check --fix --select I,F401` and
+  `ruff format` inside the generator, so the files equal what `ruff format` produces and
+  the up-to-date test can compare text. `python -m tools.gen` alone is enough.
+- 2026-11-26 — Strict scalars (`StrictInt`/`StrictStr`/`StrictBool`, `Number` that
+  accepts ints but not bools or strings): JSON `1.0` is not an integer and `"5"` is not a
+  number. `DateTime` parses with `ocpp_sdk.datetime` and sends UTC with `Z`. Spec-text rules
+  are Python statements in `profiles.py` run by one generated `model_validator`; they raise
+  `rule_error(path, reason)` / `needed_error(path)` (pydantic custom errors `ocpp_rule` /
+  `ocpp_needed` carrying the field path), which the registry reports with the full path and
+  maps to `PropertyConstraintViolation` / `OccurrenceConstraintViolation`.
+- 2026-11-26 — The 1.6 `DataTransfer.data` is a string in the 1.6 schemas (AGENTS section 4
+  says properties without a type are `Any`; that applies to the 2.x schemas where `data` has no
+  type). `docs/spec/go.mod` (Go-only) and the Go copies `docs/api-review.md` and
+  `docs/benchmarks.md` are not committed.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 
