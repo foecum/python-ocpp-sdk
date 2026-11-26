@@ -483,7 +483,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
       2.0.1; ops/s and latency percentiles; 20-station slow smoke test;
       1,000-station run is manual
 - [x] API review in `docs/api-review.md` (owner approves with the v1.0.0 tag); `CHANGELOG.md`
-- [ ] Tag `v1.0.0` (ask owner first). From here breaking changes need a new major
+- [x] Tag `v1.0.0` (ask owner first). From here breaking changes need a new major
       version.
 
 ### Phase 10 — OCPP 2.1

@@ -3,7 +3,7 @@
 Async Python SDK for **OCPP-J** (OCPP over JSON/WebSocket), covering the Charge
 Point / Charging Station and Central System / CSMS roles.
 
-**Status: pre-alpha, under construction.** The core (errors, date-times, OCPP-J
+**Status: 1.0 for OCPP 1.6J and 2.0.1; OCPP 2.1 is planned.** The core (errors, date-times, OCPP-J
 framing, endpoint), the WebSocket transport (server, client with reconnect,
 security profiles 1-3) and the OCPP 1.6 message models (generated from the official
 schemas) and the high-level OCPP 1.6 `ChargePoint` and `CSMS` classes (typed calls,

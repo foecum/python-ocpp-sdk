@@ -2,7 +2,10 @@
 
 All notable changes. The project follows semantic versioning from 1.0.0.
 
-## [Unreleased]
+## [1.0.0] - OCPP 1.6J and 2.0.1, API approved
+
+The public API of `ocpp_sdk` (see `docs/api-review.md`) is stable: breaking changes need a new
+major version. OCPP 2.1 is planned as an addition (1.1.0).
 
 ### Added
 - Property tests (Hypothesis) for frame parsing, message decoding, date-times and the endpoint;

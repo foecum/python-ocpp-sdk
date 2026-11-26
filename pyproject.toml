@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Fauz Ecum" }]
 keywords = ["ocpp", "ev", "charging", "websocket", "asyncio"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
