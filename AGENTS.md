@@ -367,7 +367,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 - [x] Exception hierarchy, `CallError`, `ErrorCode` sets for 1.6 and 2.0.1/2.1
       (note spelling differences)
-- [ ] `ocpp_sdk.datetime` (section 4 rules)
+- [x] `ocpp_sdk.datetime` (section 4 rules)
 - [ ] `ocppj.frames`: CALL `[2, id, action, payload]`, CALLRESULT `[3, id, payload]`,
       CALLERROR `[4, id, code, description, details]`; message IDs ≤ 36 chars
 - [ ] `ocppj.registry`: action → request/response models per version
