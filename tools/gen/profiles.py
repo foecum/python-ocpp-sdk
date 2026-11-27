@@ -6,7 +6,7 @@ the specification so users can search the spec; the choices match go-ocpp-sdk.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,16 @@ class Named:
 
     doc: str
     locations: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ExtraSet:
+    """A CSV file of values that becomes a constants class and a tuple."""
+
+    file: str
+    cls: str
+    tuple_name: str
+    title: str
 
 
 @dataclass(frozen=True)
@@ -80,6 +90,12 @@ class Profile:
     int_max: dict[str, int] = field(default_factory=dict)
     #: number fields that accept at most one fractional digit (``Model.wireName``).
     one_decimal: frozenset[str] = frozenset()
+    #: Optional fields (``Model.wireName``) that doctest samples include because a rule needs them.
+    sample_fields: frozenset[str] = frozenset()
+    #: One-way messages (OCPP 2.1 SEND): their schema is ``<Action>.json``, no response.
+    one_way: frozenset[str] = frozenset()
+    #: Value lists in the appendices CSV files that become constants (2.1).
+    extra_sets: tuple[ExtraSet, ...] = ()
     #: messages with a schema that a later roadmap item generates.
     deferred: frozenset[str] = frozenset()
     #: ``Model.wireName`` -> type from ``ocpp_sdk.model`` replacing ``StrictStr`` (PEM, hex, ...).
@@ -862,4 +878,214 @@ V201 = Profile(
     one_decimal=frozenset({"ChargingSchedulePeriod.limit"}),
     empty_allowed=frozenset({"SetVariableData.attributeValue"}),
     rules=_RULES_V201,
+)
+
+
+# ---------------------------------------------------------------------------------------------
+# OCPP 2.1
+# ---------------------------------------------------------------------------------------------
+
+#: The messages OCPP 2.1 adds to the blocks it shares with 2.0.1, in the order of the block's
+#: functional requirements.
+_EXTRA_V21 = {
+    "authorization": ("NotifySettlement", "NotifyWebPaymentStarted", "VatNumberValidation"),
+    "tariffandcost": ("ChangeTransactionTariff", "ClearTariffs", "GetTariffs", "SetDefaultTariff"),
+    "smartcharging": (
+        "NotifyPriorityCharging",
+        "PullDynamicScheduleUpdate",
+        "UpdateDynamicSchedule",
+        "UsePriorityCharging",
+    ),
+    "iso15118": ("GetCertificateChainStatus",),
+    "diagnostics": (
+        "AdjustPeriodicEventStream",
+        "ClosePeriodicEventStream",
+        "GetPeriodicEventStream",
+        "NotifyPeriodicEventStream",
+        "OpenPeriodicEventStream",
+    ),
+}
+
+_MODULES_V21 = (
+    *(
+        replace(
+            m,
+            messages=(*m.messages, *_EXTRA_V21.get(m.name, ())),
+            title="M Certificate Management" if m.name == "iso15118" else m.title,
+        )
+        for m in _MODULES_V201
+    ),
+    Module(
+        "bidirectional",
+        "Q Bidirectional Power Transfer",
+        ("AFRRSignal", "NotifyAllowedEnergyTransfer"),
+        "Bidirectional",
+        "bidirectional",
+    ),
+    Module(
+        "dercontrol",
+        "R DER Control",
+        (
+            "ClearDERControl",
+            "GetDERControl",
+            "NotifyDERAlarm",
+            "NotifyDERStartStop",
+            "ReportDERControl",
+            "SetDERControl",
+        ),
+        "DERControl",
+        "der_control",
+    ),
+    Module(
+        "batteryswap",
+        "S Battery Swapping",
+        ("BatterySwap", "RequestBatterySwap"),
+        "BatterySwap",
+        "battery_swap",
+    ),
+)
+
+#: The senders of the 27 messages 2.1 adds are stated in the scenarios of OCPP 2.1 part 2.
+_FROM_STATION_V21 = _FROM_STATION_V201 | {
+    "BatterySwap",
+    "ClosePeriodicEventStream",
+    "GetCertificateChainStatus",
+    "NotifyDERAlarm",
+    "NotifyDERStartStop",
+    "NotifyPeriodicEventStream",
+    "NotifyPriorityCharging",
+    "NotifySettlement",
+    "OpenPeriodicEventStream",
+    "PullDynamicScheduleUpdate",
+    "ReportDERControl",
+    "VatNumberValidation",
+}
+
+_NOT_STANDALONE = """
+        if self.control_type == DERControl.POWER_MONITORING_MUST_TRIP:
+            raise rule_error(
+                "controlType", "PowerMonitoringMustTrip is not a stand-alone DER control"
+            )
+"""
+
+_RULES_V21 = {
+    **_RULES_V201,
+    # In 2.1 a period may carry a setpoint instead of a limit; the V2X curves need two points.
+    "ChargingSchedulePeriod": """
+        curve = self.v2x_freq_watt_curve
+        mode = self.operation_mode
+        if curve is None and mode == OperationMode.LOCAL_FREQUENCY:
+            raise needed_error("v2xFreqWattCurve")
+        if curve is not None and len(curve) < 2:
+            raise rule_error("v2xFreqWattCurve", "must contain at least two coordinates")
+        signal = self.v2x_signal_watt_curve
+        if signal is not None and len(signal) < 2:
+            raise rule_error("v2xSignalWattCurve", "must contain at least two coordinates")
+    """,
+    "ChargingProfile": _RULES_V201["ChargingProfile"]
+    + """
+        tx_purposes = (ChargingProfilePurpose.TX_PROFILE, ChargingProfilePurpose.TX_DEFAULT_PROFILE)
+        for index, schedule in enumerate(self.charging_schedule):
+            if schedule.randomized_delay and self.charging_profile_purpose not in tx_purposes:
+                raise rule_error(
+                    f"chargingSchedule.{index}.randomizedDelay",
+                    "only allowed for TxProfile and TxDefaultProfile",
+                )
+    """,
+    # Errata 2026-09, 2.28: pctMaxDischargePower is required, as a percentage.
+    "LimitMaxDischarge": """
+        if self.pct_max_discharge_power is None:
+            raise needed_error("pctMaxDischargePower")
+    """,
+    # Errata 2026-09, 2.30: PowerMonitoringMustTrip is not a valid stand-alone DER control.
+    "SetDERControlRequest": _NOT_STANDALONE,
+    "GetDERControlRequest": _NOT_STANDALONE,
+    "ClearDERControlRequest": _NOT_STANDALONE,
+    "NotifyDERAlarmRequest": _NOT_STANDALONE,
+    # "This value is mandatory if hv10MinMeanTripDelay is set" and the reverse.
+    "VoltageParams": """
+        if self.hv10_min_mean_trip_delay is not None and self.hv10_min_mean_value is None:
+            raise needed_error("hv10MinMeanValue")
+        if self.hv10_min_mean_value is not None and self.hv10_min_mean_trip_delay is None:
+            raise needed_error("hv10MinMeanTripDelay")
+    """,
+    # "Must be in 24h format with leading zeros" and "RFC 3339 full-date" (YYYY-MM-DD).
+    "TariffConditions": "TARIFF_CONDITIONS",
+    "TariffConditionsFixed": "TARIFF_CONDITIONS",
+}
+_TARIFF_CONDITIONS = """
+        for wire, value in (
+            ("startTimeOfDay", self.start_time_of_day),
+            ("endTimeOfDay", self.end_time_of_day),
+        ):
+            if value is not None and not time_of_day_ok(value):
+                raise rule_error(wire, "must be HH:MM in 24h format with leading zeros")
+        for wire, value in (
+            ("validFromDate", self.valid_from_date),
+            ("validToDate", self.valid_to_date),
+        ):
+            if value is not None and not full_date_ok(value):
+                raise rule_error(wire, "must be a date written YYYY-MM-DD")
+"""
+_RULES_V21 = {
+    k: (_TARIFF_CONDITIONS if v == "TARIFF_CONDITIONS" else v) for k, v in _RULES_V21.items()
+}
+
+V21 = Profile(
+    version="2.1",
+    package="v21",
+    schema_dir="docs/spec/2.1/schemas",
+    request_suffix="Request",
+    response_suffix="Response",
+    modules=_MODULES_V21,
+    from_station=_FROM_STATION_V21,
+    descriptions={},
+    definitions_naming=True,
+    appendices_dir="docs/spec/2.1/Appendices_CSV_v2.1",
+    request_file_suffix="Request",
+    error_codes="ErrorCodeV2",
+    station_module="charging_station",
+    session_class="ChargingStation",
+    session_param="charging_station",
+    station_calls="ChargingStationCalls",
+    one_way=frozenset({"NotifyPeriodicEventStream"}),
+    sample_fields=frozenset({"LimitMaxDischarge.pctMaxDischargePower"}),
+    int_min={
+        **V201.int_min,
+        "LimitMaxDischarge.pctMaxDischargePower": 0,
+    },
+    int_max={**V201.int_max, "LimitMaxDischarge.pctMaxDischargePower": 100},
+    one_decimal=frozenset({"ChargingSchedulePeriod.limit"}),
+    empty_allowed=frozenset({"SetVariableData.attributeValue"}),
+    rules=_RULES_V21,
+    extra_sets=(
+        ExtraSet("idtokenenumtype.csv", "IdTokenType", "ID_TOKEN_TYPES", "idToken types"),
+        ExtraSet("connectorenumtype.csv", "ConnectorType", "CONNECTOR_TYPES", "connector types"),
+        ExtraSet(
+            "charginglimitsourceenumtype.csv",
+            "ChargingLimitSource",
+            "CHARGING_LIMIT_SOURCES",
+            "charging limit sources",
+        ),
+        ExtraSet("paymentbrand.csv", "PaymentBrand", "PAYMENT_BRANDS", "payment brands"),
+        ExtraSet(
+            "paymentrecognition.csv",
+            "PaymentRecognition",
+            "PAYMENT_RECOGNITIONS",
+            "payment recognitions",
+        ),
+        ExtraSet(
+            "additional_info_types.csv",
+            "AdditionalInfoType",
+            "ADDITIONAL_INFO_TYPES",
+            "additionalInfo types",
+        ),
+        ExtraSet(
+            "additional_info_types_adhoc.csv",
+            "AdditionalInfoAdHocType",
+            "ADDITIONAL_INFO_ADHOC_TYPES",
+            "additionalInfo types for ad hoc payments",
+        ),
+        ExtraSet("signingmethod.csv", "SigningMethod", "SIGNING_METHODS", "signing methods"),
+    ),
 )

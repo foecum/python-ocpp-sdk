@@ -78,7 +78,12 @@ class MessageIR:
     module: str
     doc: str
     request: ModelIR
-    response: ModelIR
+    response: ModelIR | None  # None for a one-way message (OCPP 2.1 SEND)
+
+    @property
+    def models(self) -> list[ModelIR]:
+        """The request and, if there is one, the response."""
+        return [self.request] if self.response is None else [self.request, self.response]
 
 
 @dataclass
@@ -324,6 +329,15 @@ def load(profile: Profile) -> SchemaIR:
             if action in listed:
                 raise GenError(f"{action} is listed twice")
             listed.add(action)
+            if action in profile.one_way:  # a SEND: one schema named after the message
+                req_node = json.loads((schema_dir / f"{action}.json").read_text())
+                b.stem, b.defs = action, req_node.get("definitions", {})
+                req_name = b.obj(req_node, action, action)
+                req_ir = b.ir.types.pop(req_name)
+                req_ir.action = action
+                req_ir.doc = profile.descriptions.get(action) or f"The {action} message (a SEND)."
+                b.ir.messages.append(MessageIR(action, module.name, req_ir.doc, req_ir, None))
+                continue
             rq = f"{action}{profile.request_file_suffix}"
             req_node = json.loads((schema_dir / f"{rq}.json").read_text())
             res_node = json.loads((schema_dir / f"{action}Response.json").read_text())
@@ -365,19 +379,20 @@ def load(profile: Profile) -> SchemaIR:
         set(profile.rules)
         - set(b.ir.types)
         - {m.request.name for m in b.ir.messages}
-        - {m.response.name for m in b.ir.messages}
+        - {m.response.name for m in b.ir.messages if m.response}
     )
     if unused_rules:
         raise GenError(f"rules for unknown models: {sorted(unused_rules)}")
     for m in b.ir.messages:
         m.request.rules = profile.rules.get(m.request.name)
-        m.response.rules = profile.rules.get(m.response.name)
+        if m.response:
+            m.response.rules = profile.rules.get(m.response.name)
     for limits, label in ((profile.int_min, "int_min"), (profile.array_min, "array_min")):
         known = {
             f"{m.name}.{f.wire}"
             for m in [
                 *b.ir.types.values(),
-                *(x for ms in b.ir.messages for x in (ms.request, ms.response)),
+                *(x for ms in b.ir.messages for x in ms.models),
             ]
             for f in m.fields
         }

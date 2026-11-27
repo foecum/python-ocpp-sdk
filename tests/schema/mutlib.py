@@ -103,14 +103,21 @@ def failures(
     payload: Any,
     accepts: Callable[[Any], bool],
     overrides: set[tuple[Path_, str]] = frozenset(),  # type: ignore[assignment]
+    required_by_spec: frozenset[str] = frozenset(),
 ) -> list[str]:
-    """Run every mutation of ``payload``; return a line for each one the SDK got wrong."""
+    """Run every mutation of ``payload``; return a line for each one the SDK got wrong.
+
+    ``required_by_spec`` names fields the schema leaves optional but a rule of the spec text
+    (or its errata) requires in the samples' context.
+    """
     wrong: list[str] = []
     defs = schema.get("definitions", {})
     validator = jsonschema.Draft4Validator(schema)
     for name, path, new, reject, schema_agrees in mutations(schema, payload, (), "root", defs):
         if (path, name) in overrides:  # the spec says otherwise (AGENTS.md section 4)
             reject, schema_agrees = False, False
+        if name == "remove optional" and path[-1] in required_by_spec:
+            reject, schema_agrees = True, False  # optional in the schema, required by a rule
         mutated = apply(payload, path, new)
         label = f"{'.'.join(map(str, path)) or 'root'}: {name}"
         if schema_agrees and validator.is_valid(mutated) is reject:

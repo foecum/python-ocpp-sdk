@@ -488,17 +488,17 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 
 ### Phase 10 — OCPP 2.1
 
-- [ ] Post a plan for 2.1 and wait for OK
+- [x] Post a plan for 2.1 and wait for OK
 - [x] `ocppj`: SEND and CALLRESULTERROR on 2.1 connections (section 4)
-- [ ] Generator profile for 2.1: 91 messages (the 64 of 2.0.1 plus 27), 19 blocks:
+- [x] Generator profile for 2.1: 91 messages (the 64 of 2.0.1 plus 27), 19 blocks:
       the 16 of 2.0.1 plus Q `bidirectional`, R `dercontrol`, S `batteryswap`;
       directions of the 27 new messages read from the part 2 scenarios (match
       go-ocpp-sdk's `internal/gen/profiles.go`)
-- [ ] Generated `v21` types, blocks, appendices (also idToken types, connector
+- [x] Generated `v21` types, blocks, appendices (also idToken types, connector
       types, charging limit sources, payment brands and recognitions,
       additionalInfo types, signing methods), handlers; 2.1 spec-text and errata
       rules
-- [ ] `ChargingStation` (incl. `notify_periodic_event_stream`), `CSMS`, `Config`
+- [x] `ChargingStation` (incl. `notify_periodic_event_stream`), `CSMS`, `Config`
       (incl. `send_handler`) for 2.1
 - [ ] Examples, load test, property tests and benchmarks for 2.1; interop test
       against go-ocpp-sdk 2.1
@@ -631,6 +631,19 @@ Record each decision as: date — decision — reason.
   `HYPOTHESIS_MAX_EXAMPLES`); `fuzz.yml` uses 20,000 weekly. Benchmarks run once per normal test
   run (`--benchmark-disable` in `addopts`) and for real with `--benchmark-enable --benchmark-only`.
   The old Go copies of `docs/benchmarks.md` and `docs/api-review.md` were replaced.
+- 2026-11-27 — 2.1 (plan recorded here, approval waived). `v21` is generated like `v201` and does
+  not import it; `Profile.one_way` marks `NotifyPeriodicEventStream` (schema `<Action>.json`, class
+  without suffix, `ONE_WAY` tuple, `Registry.register_one_way`, `Endpoint.send`, a generated
+  `notify_periodic_event_stream(message)` method on `ChargingStationCalls`). The CSMS receives it
+  (and any other SEND) through `Config.send_handler(station, message)`; the station's
+  `Config.send_handler(message)` is for vendor use. Rules: the 2.0.1 ones carry over; new are the
+  V2X curve rules (two coordinates; the freq-watt curve needed for LocalFrequency),
+  randomizedDelay only for TxProfile/TxDefaultProfile, errata 2026-09 2.28 (`pctMaxDischargePower`
+  required, 0..100) and 2.30 (PowerMonitoringMustTrip not stand-alone), voltage-params pairing, and
+  24h/full-date syntax of tariff conditions (`model.time_of_day_ok` / `full_date_ok`). The appendices
+  CSVs of 2.1 add idToken/connector/limit-source/payment/additionalInfo/signing-method constants.
+  `idToken.type` is a plain string in 2.1. Mutation tests mark `pctMaxDischargePower` and the hv10
+  pair as required-by-rule.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
 

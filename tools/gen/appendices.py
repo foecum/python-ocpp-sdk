@@ -270,5 +270,21 @@ def render(profile: Profile) -> str:
         "is_critical_security_event",
         "is_known_security_event",
     ]
+    # value lists kept in their own CSV files (2.1)
+    for extra in profile.extra_sets:
+        names, values = _Names(extra.title), []
+        for row in read_csv(base / extra.file):
+            if row and row[0]:
+                text = row[1] if len(row) == 2 else ", ".join(c for c in row[1:] if c)
+                values.append((names.get(row[0]), row[0], first_sentence(text)))
+        section(_namespace(extra.cls, f"Standardized {extra.title} (appendices CSV).", values))
+        section(
+            [
+                f"{extra.tuple_name}: tuple[str, ...] = (",
+                *(f"    {extra.cls}.{n}," for n, _, _ in values),
+                ")",
+            ]
+        )
+        exported += [extra.tuple_name, extra.cls]
     out.insert(3, f"__all__ = {_sorted_all(exported)}\n")
     return "\n\n".join(out)

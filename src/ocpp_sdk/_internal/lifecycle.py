@@ -30,6 +30,19 @@ _MaybeAwaitable = Awaitable[object] | object
 S = TypeVar("S")
 
 
+def _drop_action(
+    handler: Callable[..., _MaybeAwaitable] | None, *leading: Any
+) -> Callable[[str, BaseModel], Awaitable[None]] | None:
+    """Adapt ``handler(*leading, message)`` to the endpoint's ``(action, message)`` SEND handler."""
+    if handler is None:
+        return None
+
+    async def run(action: str, message: BaseModel) -> None:
+        await resolve(handler(*leading, message))
+
+    return run
+
+
 async def resolve(value: object) -> None:
     """Await ``value`` if it is awaitable (hooks may be sync or async)."""
     if inspect.isawaitable(value):
@@ -72,12 +85,14 @@ class StationCore:
         max_message_size: int,
         open_timeout: float,
         close_timeout: float,
+        send_handler: Callable[[BaseModel], _MaybeAwaitable] | None = None,
     ) -> None:
         self._registry = registry
         self._config = config
         self._dispatch = dispatch
         self._response_timeout = response_timeout
         self._queue_size = queue_size
+        self._send_handler = send_handler
         self._endpoint: Endpoint | None = None
         self._online = asyncio.Event()
         self._client = Client(
@@ -124,6 +139,7 @@ class StationCore:
             handler=make_handler(self._config, self._dispatch),
             response_timeout=self._response_timeout,
             queue_size=self._queue_size,
+            send_handler=_drop_action(self._send_handler),
         )
         self._endpoint = endpoint
         self._online.set()
@@ -138,6 +154,12 @@ class StationCore:
         if endpoint is None or endpoint.closed:
             raise NotConnectedError("not connected to the Central System")
         return await endpoint.call(request, timeout=timeout)
+
+    async def send(self, message: BaseModel) -> None:
+        endpoint = self._endpoint
+        if endpoint is None or endpoint.closed:
+            raise NotConnectedError("not connected to the Central System")
+        await endpoint.send(message)
 
 
 class SessionCore:
@@ -164,6 +186,12 @@ class SessionCore:
         if endpoint is None or endpoint.closed:
             raise NotConnectedError(f"{self.charge_point_id} is not connected")
         return await endpoint.call(request, timeout=timeout)
+
+    async def send(self, message: BaseModel) -> None:
+        endpoint = self.endpoint
+        if endpoint is None or endpoint.closed:
+            raise NotConnectedError(f"{self.charge_point_id} is not connected")
+        await endpoint.send(message)
 
 
 class CSMSCore(Generic[S]):
@@ -197,10 +225,12 @@ class CSMSCore(Generic[S]):
         max_message_size: int,
         open_timeout: float,
         close_timeout: float,
+        send_handler: Callable[[S, BaseModel], _MaybeAwaitable] | None = None,
     ) -> None:
         self._registry = registry
         self._config = config
         self._dispatch = dispatch
+        self._send_handler = send_handler
         self._wrap = wrap
         self._on_connect_hook = on_connect
         self._on_disconnect_hook = on_disconnect
@@ -268,6 +298,7 @@ class CSMSCore(Generic[S]):
             handler=make_handler(self._config, self._dispatch, session),
             response_timeout=self._response_timeout,
             queue_size=self._queue_size,
+            send_handler=_drop_action(self._send_handler, session),
         )
         core.endpoint = endpoint
         self._sessions[connection.charge_point_id] = (session, core)

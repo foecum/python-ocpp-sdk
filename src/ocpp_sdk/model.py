@@ -52,8 +52,10 @@ __all__ = [
     "PemCertificate",
     "PemCertificates",
     "PemCsr",
+    "full_date_ok",
     "needed_error",
     "rule_error",
+    "time_of_day_ok",
 ]
 
 
@@ -208,3 +210,33 @@ HexBytes = Annotated[str, Strict(), AfterValidator(_check_hex_bytes)]
 
 Base64 = Annotated[str, Strict(), AfterValidator(_check_base64)]
 """A Base64 (standard alphabet, padded) string."""
+
+
+_TIME_OF_DAY = re.compile(r"([01][0-9]|2[0-3]):[0-5][0-9]")
+_FULL_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+
+def time_of_day_ok(value: str) -> bool:
+    """Whether ``value`` is ``HH:MM`` in 24h format with leading zeros.
+
+    Example:
+        >>> time_of_day_ok("07:30"), time_of_day_ok("7:30"), time_of_day_ok("24:00")
+        (True, False, False)
+    """
+    return _TIME_OF_DAY.fullmatch(value) is not None
+
+
+def full_date_ok(value: str) -> bool:
+    """Whether ``value`` is an RFC 3339 full-date written ``YYYY-MM-DD`` and a real date.
+
+    Example:
+        >>> full_date_ok("2025-02-28"), full_date_ok("2025-02-30"), full_date_ok("25-02-28")
+        (True, False, False)
+    """
+    if _FULL_DATE.fullmatch(value) is None:
+        return False
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        return False
+    return True

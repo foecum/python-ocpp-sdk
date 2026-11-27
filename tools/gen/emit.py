@@ -89,7 +89,7 @@ class _Ctx:
         if name in self.ir.types:
             return self.ir.types[name]
         for m in self.ir.messages:
-            for r in (m.request, m.response):
+            for r in m.models:
                 if r.name == name:
                     return r
         raise KeyError(name)
@@ -121,7 +121,10 @@ class _Ctx:
         return ("list", [self.sample(f.item)])
 
     def to_dict(self, m: ModelIR) -> Sample:
-        return ("dict", [(f.wire, self.sample(f)) for f in m.fields if f.required])
+        wanted = [
+            f for f in m.fields if f.required or f"{m.name}.{f.wire}" in self.profile.sample_fields
+        ]
+        return ("dict", [(f.wire, self.sample(f)) for f in wanted])
 
 
 # -- fields ------------------------------------------------------------------
@@ -291,7 +294,7 @@ from pydantic import StringConstraints, model_validator
 
 from ocpp_sdk.model import AbsoluteURI, Base64, DateTime, Hex, HexBytes, Number, OCPPModel
 from ocpp_sdk.model import OneDecimal, PemCertificate, PemCertificates, PemCsr
-from ocpp_sdk.model import needed_error, rule_error
+from ocpp_sdk.model import full_date_ok, needed_error, rule_error, time_of_day_ok
 """
 
 
@@ -327,10 +330,16 @@ def render_module(profile: Profile, ir: SchemaIR, module: str, title: str) -> st
     """One feature profile's messages."""
     ctx = _Ctx(profile, ir)
     messages: list[MessageIR] = [m for m in ir.messages if m.module == module]
-    classes = [c for m in messages for c in (m.request, m.response)]
+    classes = [c for m in messages for c in m.models]
     shared = ", ".join(_names(profile, ir))
-    pairs = ",\n    ".join(f"({m.request.name}, {m.response.name})" for m in messages)
+    two_way = [m for m in messages if m.response]
+    one_way = [m for m in messages if not m.response]
+    pairs = ",\n    ".join(
+        f"({m.request.name}, {m.response.name})" for m in two_way if m.response is not None
+    )
     exported = ["MESSAGES", *(c.name for c in classes), *_event_names(profile, module)]
+    if one_way:
+        exported.append("ONE_WAY")
     parts = [
         HEADER,
         f'"""OCPP {profile.version} {title} messages."""\n',
@@ -340,7 +349,8 @@ def render_module(profile: Profile, ir: SchemaIR, module: str, title: str) -> st
     ]
     for m in messages:
         parts.append(_model_class(m.request, ctx, message=True) + "\n")
-        parts.append(_model_class(m.response, ctx, message=True) + "\n")
+        if m.response:
+            parts.append(_model_class(m.response, ctx, message=True) + "\n")
     if module == "security" and profile.security_events:
         parts.append(_security_events(profile))
     parts.append(
@@ -348,6 +358,12 @@ def render_module(profile: Profile, ir: SchemaIR, module: str, title: str) -> st
         f"    {pairs},\n)\n"
         '"""Every request and response pair of this module, for the registry."""\n'
     )
+    if one_way:
+        names = ", ".join(m.request.name for m in one_way)
+        parts.append(
+            f"ONE_WAY: tuple[type[OCPPModel], ...] = ({names},)\n"
+            '"""The unconfirmed messages (sent as SEND, never answered), for the registry."""\n'
+        )
     return "\n\n".join(parts)
 
 

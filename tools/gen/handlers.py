@@ -27,7 +27,7 @@ def split(profile: Profile, ir: SchemaIR, side: str) -> tuple[list[MessageIR], l
     for m in ir.messages:
         from_station = m.action in profile.from_station
         both = m.action == "DataTransfer"
-        if both or from_station != station:
+        if (both or from_station != station) and m.response:  # a SEND has no handler method
             received.append(m)
         if both or from_station == station:
             sent.append(m)
@@ -35,6 +35,7 @@ def split(profile: Profile, ir: SchemaIR, side: str) -> tuple[list[MessageIR], l
 
 
 def _signature(profile: Profile, side: str, m: MessageIR) -> str:
+    assert m.response is not None
     result = f"{m.response.name} | Awaitable[{m.response.name}]"
     if side == "csms":
         session = f"{profile.session_param}: {profile.session_class}"
@@ -97,7 +98,31 @@ def _unimplemented(profile: Profile, side: str, module: Module, messages: list[M
     return "\n".join(lines)
 
 
+def _send(m: MessageIR) -> str:
+    summary = textwrap.fill(
+        f"Sends {m.action} as an unconfirmed SEND: {m.doc[0].lower() + m.doc[1:]}",
+        width=88,
+        subsequent_indent="        ",
+    )
+    return f'''
+    async def {snake(m.action)}(self, message: {m.request.name}) -> None:
+        """{summary}
+
+        The message is written at once; it is not queued behind calls and never answered.
+
+        Raises:
+            NotConnectedError: There is no connection.
+            ValidationError: The message is invalid.
+
+        Example:
+            >>> await peer.{snake(m.action)}(message)  # doctest: +SKIP
+        """
+        await self._send(message)
+'''
+
+
 def _call(m: MessageIR, *, by_id: bool) -> str:
+    assert m.response is not None
     who = "charge_point_id: str, " if by_id else ""
     target = "charge_point_id, " if by_id else ""
     helper = "_call_charge_point" if by_id else "_call"
@@ -152,7 +177,13 @@ def _calls(name: str, doc: str, sent: list[MessageIR], *, by_id: bool) -> str:
         '        """Send ``request`` and wait for the answer (provided by the class)."""\n'
         "        raise NotImplementedError\n"
     )
-    body = "".join(_call(m, by_id=by_id) for m in sent)
+    body = "".join(_call(m, by_id=by_id) if m.response else _send(m) for m in sent)
+    if any(not m.response for m in sent):
+        helper += (
+            "\n    async def _send(self, message: BaseModel) -> None:\n"
+            '        """Send ``message`` as a SEND (the class provides it)."""\n'
+            "        raise NotImplementedError\n"
+        )
     return f'class {name}:\n    """{doc}"""\n\n{helper}{body}'
 
 
@@ -205,11 +236,7 @@ def render(profile: Profile, ir: SchemaIR, side: str) -> str:
     pkg = f"ocpp_sdk.{profile.package}"
     mods = "\n".join(
         f"from {pkg}.{mod.name} import "
-        + ", ".join(
-            sorted(
-                c.name for m in ir.messages if m.module == mod.name for c in (m.request, m.response)
-            )
-        )
+        + ", ".join(sorted(c.name for m in ir.messages if m.module == mod.name for c in m.models))
         for mod in profile.modules
     )
     checking = (

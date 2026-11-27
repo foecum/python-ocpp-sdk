@@ -12,12 +12,12 @@ import sys
 from pathlib import Path
 
 from tools.gen import appendices, emit, handlers, schema
-from tools.gen.profiles import V16, V201, Profile
+from tools.gen.profiles import V16, V21, V201, Profile
 
 ROOT = schema.ROOT
 SRC = ROOT / "src" / "ocpp_sdk"
 
-PROFILES: tuple[Profile, ...] = (V16, V201)
+PROFILES: tuple[Profile, ...] = (V16, V201, V21)
 
 
 def _format(path: str, source: str) -> str:
