@@ -489,7 +489,7 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
 ### Phase 10 — OCPP 2.1
 
 - [ ] Post a plan for 2.1 and wait for OK
-- [ ] `ocppj`: SEND and CALLRESULTERROR on 2.1 connections (section 4)
+- [x] `ocppj`: SEND and CALLRESULTERROR on 2.1 connections (section 4)
 - [ ] Generator profile for 2.1: 91 messages (the 64 of 2.0.1 plus 27), 19 blocks:
       the 16 of 2.0.1 plus Q `bidirectional`, R `dercontrol`, S `batteryswap`;
       directions of the 27 new messages read from the part 2 scenarios (match

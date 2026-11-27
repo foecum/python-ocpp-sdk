@@ -31,3 +31,11 @@ class EchoRequest(Base):
 class EchoResponse(Base):
     ACTION: ClassVar[str] = "Echo"
     text: str
+
+
+class StreamRequest(Base):
+    """A one-way (SEND) message, like OCPP 2.1's NotifyPeriodicEventStream."""
+
+    ACTION: ClassVar[str] = "Stream"
+    seq: int
+    note: str | None = Field(default=None, max_length=5)

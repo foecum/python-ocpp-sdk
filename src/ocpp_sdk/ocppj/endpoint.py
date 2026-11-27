@@ -43,22 +43,35 @@ from ocpp_sdk.ocppj.frames import (
     Call,
     CallErrorFrame,
     CallResult,
+    CallResultErrorFrame,
     Frame,
     FrameError,
+    Send,
     encode,
     parse_frame,
 )
 from ocpp_sdk.ocppj.registry import Registry
+from ocpp_sdk.versions import Version
 
-__all__ = ["DEFAULT_QUEUE_SIZE", "DEFAULT_RESPONSE_TIMEOUT", "Endpoint", "Handler", "Send"]
+__all__ = [
+    "DEFAULT_QUEUE_SIZE",
+    "DEFAULT_RESPONSE_TIMEOUT",
+    "Endpoint",
+    "Handler",
+    "ResultErrorHandler",
+    "SendHandler",
+    "WriteFrame",
+]
 
 logger = logging.getLogger("ocpp_sdk.ocppj.endpoint")
 
 DEFAULT_RESPONSE_TIMEOUT = 30.0
 DEFAULT_QUEUE_SIZE = 1000
 
-Send = Callable[[str], Awaitable[None]]
+WriteFrame = Callable[[str], Awaitable[None]]
 Handler = Callable[[str, BaseModel], BaseModel | Awaitable[BaseModel]]
+SendHandler = Callable[[str, BaseModel], Awaitable[None] | None]
+ResultErrorHandler = Callable[[CallResultErrorFrame], Awaitable[None] | None]
 
 
 @dataclass(eq=False, slots=True)
@@ -86,17 +99,24 @@ class Endpoint:
             from the moment the CALL is sent.
         queue_size: How many calls may wait behind the outstanding one.
         id_factory: Produces message IDs (at most 36 characters).
+        send_handler: OCPP 2.1 only. Called as ``send_handler(action, message)`` for every valid
+            incoming SEND, one at a time in arrival order (sync or async); nothing is ever
+            answered. Without one, SENDs are logged and dropped.
+        result_error_handler: OCPP 2.1 only. Called with every CALLRESULTERROR the peer sends
+            because it could not accept one of our CALLRESULTs; by default it is logged.
     """
 
     def __init__(
         self,
         registry: Registry,
-        send: Send,
+        send: WriteFrame,
         *,
         handler: Handler | None = None,
         response_timeout: float = DEFAULT_RESPONSE_TIMEOUT,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         id_factory: Callable[[], str] | None = None,
+        send_handler: SendHandler | None = None,
+        result_error_handler: ResultErrorHandler | None = None,
     ) -> None:
         self._registry = registry
         self._send = send
@@ -110,6 +130,10 @@ class Endpoint:
         self._write_lock = asyncio.Lock()
         self._tasks: set[asyncio.Task[None]] = set()
         self._worker: asyncio.Task[None] | None = None
+        self._send_handler = send_handler
+        self._result_error_handler = result_error_handler
+        self._sends: deque[Send] = deque()
+        self._send_worker: asyncio.Task[None] | None = None
         self._closed = False
 
     async def __aenter__(self) -> Endpoint:
@@ -151,6 +175,8 @@ class Endpoint:
         if self._closed:
             raise NotConnectedError("endpoint is closed")
         action = type(request).ACTION  # type: ignore[attr-defined]
+        if self._registry.is_one_way(action):
+            raise ValueError(f"{action} is an unconfirmed message: use send()")
         payload = self._registry.encode(request)
         if len(self._queue) >= self._queue_size:
             raise QueueFullError(f"{self._queue_size} calls are already waiting")
@@ -172,6 +198,28 @@ class Endpoint:
             if pending in self._queue:
                 self._queue.remove(pending)
             raise
+
+    async def send(self, message: BaseModel) -> None:
+        """Send an unconfirmed message (OCPP 2.1 SEND); returns once it is written.
+
+        A SEND is not queued behind CALLs, may go out while a CALL is outstanding, and is
+        never answered.
+
+        Raises:
+            ValueError: ``message`` is not an unconfirmed message (use :meth:`call`).
+            ValidationError: The message is invalid.
+            NotConnectedError: The endpoint is closed or the write failed.
+        """
+        if self._closed:
+            raise NotConnectedError("endpoint is closed")
+        action = type(message).ACTION  # type: ignore[attr-defined]
+        if not self._registry.is_one_way(action):
+            raise ValueError(f"{action} needs an answer: use call()")
+        payload = self._registry.encode(message)
+        try:
+            await self._write(encode(Send(self._new_id(), action, payload)))
+        except Exception as exc:
+            raise NotConnectedError(f"send failed: {exc}") from exc
 
     async def _run_calls(self) -> None:
         while True:
@@ -219,6 +267,10 @@ class Endpoint:
             self._spawn(self._handle_call(frame))
         elif isinstance(frame, CallResult):
             self._on_result(frame)
+        elif isinstance(frame, Send):
+            self._on_send(frame)
+        elif isinstance(frame, CallResultErrorFrame):
+            self._on_result_error(frame)
         else:
             self._on_call_error(frame)
 
@@ -251,11 +303,62 @@ class Endpoint:
             pending.future.set_result(self._registry.decode_response(pending.action, frame.payload))
         except ValidationError as exc:
             pending.future.set_exception(exc)
+            if self._registry.version is Version.OCPP21:  # tell the peer its answer was unusable
+                reject = CallResultErrorFrame(
+                    frame.unique_id, self._registry.response_error_code(exc), str(exc)[:255]
+                )
+                self._spawn(self._reply(reject))
 
     def _on_call_error(self, frame: CallErrorFrame) -> None:
         pending = self._matching(frame.unique_id)
         if pending is not None:
             pending.future.set_exception(CallError(frame.code, frame.description, frame.details))
+
+    def _on_send(self, frame: Send) -> None:
+        if len(self._sends) >= self._queue_size:
+            logger.warning("dropping SEND %s: the queue is full", frame.action)
+            return
+        self._sends.append(frame)
+        if self._send_worker is None:
+            self._send_worker = self._spawn(self._run_sends())
+
+    async def _run_sends(self) -> None:
+        """Hand incoming SENDs to the handler one at a time, in arrival order."""
+        while self._sends:
+            frame = self._sends.popleft()
+            try:
+                if not self._registry.is_one_way(frame.action) and frame.action in (
+                    self._registry.actions()
+                ):
+                    logger.warning("dropping SEND of %s: it needs an answer", frame.action)
+                    continue
+                message = self._registry.decode_request(frame.action, frame.payload)
+                if self._send_handler is None:
+                    logger.warning("dropping SEND %s: no handler", frame.action)
+                    continue
+                result = self._send_handler(frame.action, message)
+                if inspect.isawaitable(result):
+                    await result
+            except CallError as err:
+                logger.warning("dropping invalid SEND %s: %s", frame.action, err)
+            except Exception:
+                logger.exception("SEND handler for %s failed", frame.action)
+        self._send_worker = None
+
+    def _on_result_error(self, frame: CallResultErrorFrame) -> None:
+        if self._result_error_handler is None:
+            logger.warning("the peer rejected our response %s: %s", frame.unique_id, frame.code)
+            return
+        self._spawn(self._run_result_error(frame))
+
+    async def _run_result_error(self, frame: CallResultErrorFrame) -> None:
+        assert self._result_error_handler is not None
+        try:
+            result = self._result_error_handler(frame)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.exception("CALLRESULTERROR handler failed")
 
     async def _handle_call(self, frame: Call) -> None:
         await self._reply(await self._answer(frame))
@@ -263,6 +366,10 @@ class Endpoint:
     async def _answer(self, frame: Call) -> Frame:
         version = self._registry.version
         try:
+            if self._registry.is_one_way(frame.action):
+                raise CallError(
+                    "ProtocolError", f"{frame.action} is an unconfirmed message: send it as SEND"
+                )
             request = self._registry.decode_request(frame.action, frame.payload)
             if self._handler is None:
                 raise CallError("NotImplemented", "no handler is installed")

@@ -77,6 +77,7 @@ class Registry:
         self._version = version
         self._requests: dict[str, type[BaseModel]] = {}
         self._responses: dict[str, type[BaseModel]] = {}
+        self._one_way: set[str] = set()
 
     @property
     def version(self) -> Version:
@@ -92,6 +93,23 @@ class Registry:
             raise ValueError(f"action {action!r} is already registered")
         self._requests[action] = request
         self._responses[action] = response
+
+    def register_one_way(self, request: type[BaseModel]) -> None:
+        """Register an unconfirmed message (OCPP 2.1 SEND): it has no response model."""
+        action = _action_of(request)
+        if action in self._requests:
+            raise ValueError(f"action {action!r} is already registered")
+        self._requests[action] = request
+        self._one_way.add(action)
+
+    def is_one_way(self, action: str) -> bool:
+        """Whether ``action`` is an unconfirmed message (sent as SEND, never answered)."""
+        return action in self._one_way
+
+    def response_error_code(self, error: ValidationError) -> str:
+        """The CALLERROR / CALLRESULTERROR code for an undecodable response."""
+        kind = error.issues[0]["type"] if error.issues else "value_error"
+        return code_for_version(_classify(kind), self._version)
 
     def actions(self) -> frozenset[str]:
         """All registered action names."""

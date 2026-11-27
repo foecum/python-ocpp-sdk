@@ -23,13 +23,17 @@ __all__ = [
     "CALL",
     "CALL_ERROR",
     "CALL_RESULT",
+    "CALL_RESULT_ERROR",
     "MAX_ID_LENGTH",
+    "SEND",
     "UNREADABLE_ID",
     "Call",
     "CallErrorFrame",
     "CallResult",
+    "CallResultErrorFrame",
     "Frame",
     "FrameError",
+    "Send",
     "encode",
     "framework_error_code",
     "parse_frame",
@@ -38,6 +42,8 @@ __all__ = [
 CALL = 2
 CALL_RESULT = 3
 CALL_ERROR = 4
+CALL_RESULT_ERROR = 5
+SEND = 6
 MAX_ID_LENGTH = 36
 UNREADABLE_ID = "-1"
 
@@ -69,7 +75,29 @@ class CallErrorFrame:
     details: dict[str, Any] = field(default_factory=dict)
 
 
-Frame = Call | CallResult | CallErrorFrame
+@dataclass(frozen=True, slots=True)
+class Send:
+    """``[6, uniqueId, action, payload]`` (OCPP 2.1): an unconfirmed message, never answered."""
+
+    unique_id: str
+    action: str
+    payload: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class CallResultErrorFrame:
+    """``[5, uniqueId, errorCode, errorDescription, errorDetails]`` (OCPP 2.1).
+
+    Sent by the receiver of a CALLRESULT that it cannot accept.
+    """
+
+    unique_id: str
+    code: str
+    description: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+Frame = Call | CallResult | CallErrorFrame | Send | CallResultErrorFrame
 
 
 class FrameError(OCPPError):
@@ -144,6 +172,10 @@ def parse_frame(raw: str, version: Version) -> Frame:
         return _parse_result(data, uid, framework)
     if mtype == CALL_ERROR:
         return _parse_error(data, uid, framework)
+    if version is Version.OCPP21 and mtype == SEND:
+        return _parse_send(data, uid, framework)
+    if version is Version.OCPP21 and mtype == CALL_RESULT_ERROR:
+        return _parse_result_error(data, uid, framework)
     if version is Version.OCPP201:
         raise FrameError(
             ErrorCodeV2.MESSAGE_TYPE_NOT_SUPPORTED.value,
@@ -225,6 +257,36 @@ def _parse_error(data: list[Any], uid: str | None, framework: str) -> CallErrorF
     return CallErrorFrame(uid, code, description or "", details)
 
 
+def _parse_send(data: list[Any], uid: str | None, framework: str) -> Send:
+    """A SEND is never answered, so every problem is ``reply=False``."""
+    action = data[2] if len(data) == 4 else None
+    payload = _payload(data[3]) if len(data) == 4 else None
+    if uid is None or not isinstance(action, str) or not action or payload is None:
+        raise FrameError(
+            framework, "a SEND is [6, id, action, object]", reply=False, message_type=SEND
+        )
+    return Send(uid, action, payload)
+
+
+def _parse_result_error(data: list[Any], uid: str | None, framework: str) -> CallResultErrorFrame:
+    code = data[2] if len(data) in (4, 5) else None
+    description = data[3] if len(data) in (4, 5) else None
+    details = _payload(data[4]) if len(data) == 5 else {}
+    if (
+        uid is None
+        or not isinstance(code, str)
+        or not isinstance(description, str | None)
+        or details is None
+    ):
+        raise FrameError(
+            framework,
+            "a CALLRESULTERROR is [5, id, code, description, object]",
+            reply=False,
+            message_type=CALL_RESULT_ERROR,
+        )
+    return CallResultErrorFrame(uid, code, description or "", details)
+
+
 def encode(frame: Frame) -> str:
     """Serialise a frame to compact JSON text."""
     items: list[Any]
@@ -232,6 +294,10 @@ def encode(frame: Frame) -> str:
         items = [CALL, frame.unique_id, frame.action, frame.payload]
     elif isinstance(frame, CallResult):
         items = [CALL_RESULT, frame.unique_id, frame.payload]
+    elif isinstance(frame, Send):
+        items = [SEND, frame.unique_id, frame.action, frame.payload]
+    elif isinstance(frame, CallResultErrorFrame):
+        items = [CALL_RESULT_ERROR, frame.unique_id, frame.code, frame.description, frame.details]
     else:
         items = [CALL_ERROR, frame.unique_id, frame.code, frame.description, frame.details]
     return json.dumps(items, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
