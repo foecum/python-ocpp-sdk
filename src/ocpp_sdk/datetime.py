@@ -60,7 +60,11 @@ def format(value: datetime) -> str:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValidationError("naive datetime rejected: attach a time zone (e.g. tzinfo=UTC)")
     utc = value.astimezone(UTC)
-    text = utc.strftime("%Y-%m-%dT%H:%M:%S")
+    # Not strftime: its %Y is not zero-padded below year 1000 on every platform/version.
+    text = (
+        f"{utc.year:04d}-{utc.month:02d}-{utc.day:02d}"
+        f"T{utc.hour:02d}:{utc.minute:02d}:{utc.second:02d}"
+    )
     millis = utc.microsecond // 1000
     if millis:
         text += f".{millis:03d}"

@@ -66,6 +66,14 @@ def test_format_converts_to_utc() -> None:
     assert odt.format(datetime(2025, 1, 2, 3, 4, 5, tzinfo=tz)) == "2025-01-02T01:04:05Z"
 
 
+def test_format_pads_years_below_1000() -> None:
+    # Found by Hypothesis on Python 3.11, where strftime("%Y") gives "999".
+    value = datetime(999, 1, 1, tzinfo=UTC)
+    assert odt.format(value) == "0999-01-01T00:00:00Z"
+    assert odt.parse(odt.format(value)) == value
+    assert odt.format(datetime(1, 1, 1, tzinfo=UTC)) == "0001-01-01T00:00:00Z"
+
+
 def test_format_rejects_naive() -> None:
     with pytest.raises(ValidationError, match="naive"):
         odt.format(datetime(2025, 1, 2, 3, 4, 5))
