@@ -2,7 +2,7 @@
 
 All notable changes. The project follows semantic versioning from 1.0.0.
 
-## Unreleased
+## [1.1.1] - Fixes
 
 ### Fixed
 
