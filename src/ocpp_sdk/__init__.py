@@ -21,7 +21,7 @@ from ocpp_sdk.errors import (
 )
 from ocpp_sdk.versions import Version
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "CallError",
