@@ -500,9 +500,10 @@ uv run python -m tools.gen && uv run ruff format src/ocpp_sdk
       rules
 - [x] `ChargingStation` (incl. `notify_periodic_event_stream`), `CSMS`, `Config`
       (incl. `send_handler`) for 2.1
-- [ ] Examples, load test, property tests and benchmarks for 2.1; interop test
+- [x] Examples, load test, property tests and benchmarks for 2.1; interop test
       against go-ocpp-sdk 2.1
-- [ ] README and site update; tag `v1.1.0` (ask owner first)
+- [x] README and site update
+- [ ] Tag `v1.1.0` (ask owner first)
 
 ## 8. Decisions
 

@@ -50,5 +50,6 @@ v1.0.0 tag; from then on breaking changes need a new major version.
   classes.
 - **One outstanding call per direction.** By design (OCPP-J); a second call waits in a queue of
   1,000 (`QueueFullError` beyond that).
-- **Not implemented yet:** OCPP 2.1 (phase 10). 2.1 does not touch the 1.6 and 2.0.1 APIs,
-  which is why 1.0.0 can be tagged first.
+- **OCPP 2.1 (added in 1.1.0)** follows the same shapes. It adds `Endpoint.send`, `send_handler`
+  and the `ChargingStation.notify_periodic_event_stream` method; nothing of the 1.6 or 2.0.1 APIs
+  changed.

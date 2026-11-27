@@ -2,6 +2,22 @@
 
 All notable changes. The project follows semantic versioning from 1.0.0.
 
+## [1.1.0] - OCPP 2.1
+
+### Added
+- OCPP 2.1: 91 messages in 19 block modules (`ocpp_sdk.v21`, its own types, no dependency on
+  `v201`), generated from the official schemas, with the rules of the spec text and errata 2026-09;
+  handler protocols, typed calls, `ChargingStation` and `CSMS`; appendices constants (components,
+  variables, units, reason codes, security events, idToken and connector types, payment brands,
+  signing methods, ...).
+- `ocppj`: the 2.1 frame types SEND (`[6, ...]`) and CALLRESULTERROR (`[5, ...]`).
+  `Endpoint.send` writes an unconfirmed message; incoming SENDs reach `send_handler` one at a time
+  in arrival order; an undecodable CALLRESULT is answered with a CALLRESULTERROR.
+  `NotifyPeriodicEventStream` is the one standard SEND message
+  (`ChargingStation.notify_periodic_event_stream`, `CSMS` `Config.send_handler`).
+- 2.1 examples, schema round-trip and mutation tests, property tests, benchmarks, load test and
+  interop tests against go-ocpp-sdk.
+
 ## [1.0.0] - OCPP 1.6J and 2.0.1, API approved
 
 The public API of `ocpp_sdk` (see `docs/api-review.md`) is stable: breaking changes need a new

@@ -6,7 +6,7 @@ from examples.loadtest.loadtest import run
 pytestmark = pytest.mark.slow
 
 
-@pytest.mark.parametrize("version", ["16", "201"])
+@pytest.mark.parametrize("version", ["16", "201", "21"])
 async def test_twenty_stations_for_two_seconds(version: str) -> None:
     result = await run(version, stations=20, seconds=2.0)
     assert result.stations == 20 and result.operations > 200

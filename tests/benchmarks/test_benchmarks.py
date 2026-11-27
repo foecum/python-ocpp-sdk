@@ -24,14 +24,16 @@ from ocpp_sdk.v16.charge_point import ChargePoint
 from ocpp_sdk.v16.core import HeartbeatConfirmation, HeartbeatRequest
 from ocpp_sdk.v16.csms import CSMS
 from ocpp_sdk.v16.csms_handlers import UnimplementedCoreHandler
+from ocpp_sdk.v21 import new_registry as registry21
 from ocpp_sdk.v201 import new_registry as registry201
 from ocpp_sdk.versions import Version
 from tests.schema import samples
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMAS_201 = ROOT / "docs" / "spec" / "2.0.1" / "schemas"
+SCHEMAS_21 = ROOT / "docs" / "spec" / "2.1" / "schemas"
 FIXTURES_16 = ROOT / "tests" / "fixtures" / "v16"
-REG16, REG201 = registry16(), registry201()
+REG16, REG201, REG21 = registry16(), registry201(), registry21()
 
 
 def fixture16(action: str) -> dict[str, Any]:
@@ -41,6 +43,12 @@ def fixture16(action: str) -> dict[str, Any]:
 
 def payload201(action: str) -> dict[str, Any]:
     _, payload = samples.load(SCHEMAS_201, f"{action}Request")
+    assert isinstance(payload, dict)
+    return payload
+
+
+def payload21(stem: str) -> dict[str, Any]:
+    _, payload = samples.load(SCHEMAS_21, stem)
     assert isinstance(payload, dict)
     return payload
 
@@ -68,6 +76,17 @@ def test_decode_v16(benchmark: Any, action: str) -> None:
 def test_decode_v201(benchmark: Any, action: str) -> None:
     payload = payload201(action)
     benchmark(REG201.decode_request, action, payload)
+
+
+@pytest.mark.parametrize("action", ["BootNotification", "TransactionEvent", "SetChargingProfile"])
+def test_decode_v21(benchmark: Any, action: str) -> None:
+    payload = payload21(f"{action}Request")
+    benchmark(REG21.decode_request, action, payload)
+
+
+def test_decode_v21_send(benchmark: Any) -> None:
+    payload = payload21("NotifyPeriodicEventStream")
+    benchmark(REG21.decode_request, "NotifyPeriodicEventStream", payload)
 
 
 def test_encode_v16_message(benchmark: Any) -> None:

@@ -27,17 +27,23 @@ from ocpp_sdk.ocppj.frames import (
     parse_frame,
 )
 from ocpp_sdk.v16 import new_registry as new_registry_16
+from ocpp_sdk.v21 import new_registry as new_registry_21
 from ocpp_sdk.v201 import new_registry as new_registry_201
 from ocpp_sdk.versions import Version
 from tests.schema import samples
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES_16 = ROOT / "tests" / "fixtures" / "v16"
-SCHEMAS_201 = ROOT / "docs" / "spec" / "2.0.1" / "schemas"
+SCHEMAS = {
+    Version.OCPP201: ROOT / "docs" / "spec" / "2.0.1" / "schemas",
+    Version.OCPP21: ROOT / "docs" / "spec" / "2.1" / "schemas",
+}
 REGISTRIES: dict[Version, Registry] = {
     Version.OCPP16: new_registry_16(),
     Version.OCPP201: new_registry_201(),
+    Version.OCPP21: new_registry_21(),
 }
+MESSAGE_VERSIONS = [Version.OCPP16, Version.OCPP201, Version.OCPP21]
 VERSIONS = [Version.OCPP16, Version.OCPP201, Version.OCPP21]
 
 json_scalars = (
@@ -61,17 +67,19 @@ unique_ids = st.text(min_size=1, max_size=36)
 def sample_payloads(version: Version) -> list[tuple[str, str, dict[str, Any]]]:
     """``(action, "request" | "response", full valid payload)`` for every message."""
     out = []
-    for action in sorted(REGISTRIES[version].actions()):
-        for part in ("request", "response"):
+    registry = REGISTRIES[version]
+    for action in sorted(registry.actions()):
+        for part in ("request",) if registry.is_one_way(action) else ("request", "response"):
             if version is Version.OCPP16:
                 payload = json.loads((FIXTURES_16 / f"{action}.json").read_text())[part]
             else:
-                _, payload = samples.load(SCHEMAS_201, f"{action}{part.capitalize()}")
+                stem = action if registry.is_one_way(action) else f"{action}{part.capitalize()}"
+                _, payload = samples.load(SCHEMAS[version], stem)
             out.append((action, part, payload))
     return out
 
 
-SAMPLES = {v: sample_payloads(v) for v in (Version.OCPP16, Version.OCPP201)}
+SAMPLES = {v: sample_payloads(v) for v in MESSAGE_VERSIONS}
 
 
 # --------------------------------------------------------------------------- frames
@@ -209,7 +217,7 @@ def check_response(registry: Registry, action: str, payload: Any) -> None:
     assert registry.encode(again) == wire
 
 
-@pytest.mark.parametrize("version", [Version.OCPP16, Version.OCPP201])
+@pytest.mark.parametrize("version", MESSAGE_VERSIONS)
 @given(data=st.data())
 def test_mutated_messages_never_crash_and_accepted_ones_round_trip(
     version: Version, data: st.DataObject
@@ -220,7 +228,7 @@ def test_mutated_messages_never_crash_and_accepted_ones_round_trip(
     (check_request if part == "request" else check_response)(registry, action, mutated)
 
 
-@pytest.mark.parametrize("version", [Version.OCPP16, Version.OCPP201])
+@pytest.mark.parametrize("version", MESSAGE_VERSIONS)
 @given(data=st.data(), payload=json_objects)
 def test_arbitrary_objects_never_crash_decoding(
     version: Version, data: st.DataObject, payload: dict[str, Any]
@@ -228,11 +236,11 @@ def test_arbitrary_objects_never_crash_decoding(
     registry = REGISTRIES[version]
     action = data.draw(st.sampled_from([*sorted(registry.actions()), "Unknown"]))
     check_request(registry, action, payload)
-    if action != "Unknown":
+    if action != "Unknown" and not registry.is_one_way(action):
         check_response(registry, action, payload)
 
 
-@pytest.mark.parametrize("version", [Version.OCPP16, Version.OCPP201])
+@pytest.mark.parametrize("version", MESSAGE_VERSIONS)
 def test_every_full_sample_is_accepted_and_round_trips(version: Version) -> None:
     for action, part, payload in SAMPLES[version]:
         (check_request if part == "request" else check_response)(
@@ -281,12 +289,21 @@ frame_texts = st.one_of(
     ),
     st.builds(lambda uid, payload: json.dumps([3, uid, payload]), unique_ids, json_values),
     st.builds(
+        lambda uid, action, payload: json.dumps([6, uid, action, payload]),
+        unique_ids,
+        st.sampled_from(["NotifyPeriodicEventStream", "Heartbeat", "Nope"]),
+        json_values,
+    ),
+    st.builds(
+        lambda uid, code: json.dumps([5, uid, code, "d", {}]), unique_ids, st.text(max_size=10)
+    ),
+    st.builds(
         lambda uid, code: json.dumps([4, uid, code, "d", {}]), unique_ids, st.text(max_size=10)
     ),
 )
 
 
-@pytest.mark.parametrize("version", VERSIONS[:2])
+@pytest.mark.parametrize("version", MESSAGE_VERSIONS)
 @given(frames=st.lists(frame_texts, max_size=8))
 def test_endpoint_survives_any_frames_and_only_sends_valid_ones(
     version: Version, frames: list[str]

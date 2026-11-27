@@ -5,6 +5,7 @@ one after the other for the given time. Prints operations per second and latency
 
     uv run python examples/loadtest/loadtest.py --version 16 --stations 20 --seconds 10
     uv run python examples/loadtest/loadtest.py --version 201 --stations 1000 --seconds 30
+    uv run python examples/loadtest/loadtest.py --version 21 --stations 20 --seconds 10
 
 Loopback numbers say how much work the SDK does per message on this machine, not what a real
 network or station fleet would do. For 1,000 stations raise the open-file limit (``ulimit -n``).
@@ -32,6 +33,27 @@ from ocpp_sdk.v16.core import (
 from ocpp_sdk.v16.csms import CSMS
 from ocpp_sdk.v16.csms_handlers import UnimplementedCoreHandler
 from ocpp_sdk.v16.types import RegistrationStatus
+from ocpp_sdk.v21 import csms as csms21
+from ocpp_sdk.v21.availability import HeartbeatRequest as Heartbeat21
+from ocpp_sdk.v21.availability import HeartbeatResponse as HeartbeatResponse21
+from ocpp_sdk.v21.charging_station import ChargingStation as ChargingStation21
+from ocpp_sdk.v21.csms import CSMS as CSMS21
+from ocpp_sdk.v21.csms_handlers import (
+    UnimplementedAvailabilityHandler as UnimplementedAvailabilityHandler21,
+)
+from ocpp_sdk.v21.csms_handlers import (
+    UnimplementedProvisioningHandler as UnimplementedProvisioningHandler21,
+)
+from ocpp_sdk.v21.csms_handlers import (
+    UnimplementedTransactionsHandler as UnimplementedTransactionsHandler21,
+)
+from ocpp_sdk.v21.provisioning import BootNotificationRequest as Boot21
+from ocpp_sdk.v21.provisioning import BootNotificationResponse as BootResponse21
+from ocpp_sdk.v21.transactions import TransactionEventRequest as TransactionEventRequest21
+from ocpp_sdk.v21.transactions import TransactionEventResponse as TransactionEventResponse21
+from ocpp_sdk.v21.types import BootReason as BootReason21
+from ocpp_sdk.v21.types import ChargingStation as StationInfo21
+from ocpp_sdk.v21.types import RegistrationStatus as Registration21
 from ocpp_sdk.v201 import csms as csms201
 from ocpp_sdk.v201.availability import HeartbeatRequest as Heartbeat201
 from ocpp_sdk.v201.availability import HeartbeatResponse
@@ -195,6 +217,70 @@ async def run201(stations: int, seconds: float) -> Result:
         await server.shutdown(timeout=30)
 
 
+# ------------------------------------------------------------------ OCPP 2.1
+
+
+class Provisioning21(UnimplementedProvisioningHandler21):
+    def on_boot_notification(self, charging_station: Any, request: Any) -> BootResponse21:
+        return BootResponse21(
+            current_time=datetime.now(UTC), interval=300, status=Registration21.ACCEPTED
+        )
+
+
+class Availability21(UnimplementedAvailabilityHandler21):
+    def on_heartbeat(self, charging_station: Any, request: Any) -> HeartbeatResponse21:
+        return HeartbeatResponse21(current_time=datetime.now(UTC))
+
+
+class Transactions21(UnimplementedTransactionsHandler21):
+    def on_transaction_event(
+        self, charging_station: Any, request: Any
+    ) -> TransactionEventResponse21:
+        return TransactionEventResponse21()
+
+
+async def run21(stations: int, seconds: float) -> Result:
+    config = csms21.Config(
+        provisioning=Provisioning21(),
+        availability=Availability21(),
+        transactions=Transactions21(),
+    )
+    server = CSMS21(config, port=0, ping_interval=None)
+    await server.start()
+    event = TransactionEventRequest21.model_validate(
+        {
+            "eventType": "Updated",
+            "timestamp": NOW,
+            "triggerReason": "MeterValuePeriodic",
+            "seqNo": 1,
+            "transactionInfo": {"transactionId": "T-1"},
+            "meterValue": [{"timestamp": NOW, "sampledValue": [{"value": 1500}]}],
+        }
+    )
+    latencies: list[float] = []
+
+    async def station(index: int, deadline: float) -> None:
+        async with ChargingStation21(
+            f"ws://127.0.0.1:{server.port}/ocpp/LT-{index}", ping_interval=None, reconnect=None
+        ) as cs:
+            await cs.boot_notification(
+                Boot21(
+                    charging_station=StationInfo21(model="T", vendor_name="Load"),
+                    reason=BootReason21.POWER_UP,
+                )
+            )
+            while time.perf_counter() < deadline:
+                for call in (cs.heartbeat(Heartbeat21()), cs.transaction_event(event)):
+                    start = time.perf_counter()
+                    await call
+                    latencies.append(time.perf_counter() - start)
+
+    try:
+        return await _drive("2.1", stations, seconds, station, latencies)
+    finally:
+        await server.shutdown(timeout=30)
+
+
 # ------------------------------------------------------------------ common
 
 
@@ -208,17 +294,19 @@ async def _drive(
 
 
 async def run(version: str, stations: int, seconds: float) -> Result:
-    """Run the load test for ``version`` (``"16"`` or ``"201"``)."""
+    """Run the load test for ``version`` (``"16"``, ``"201"`` or ``"21"``)."""
     if version == "16":
         return await run16(stations, seconds)
     if version == "201":
         return await run201(stations, seconds)
-    raise ValueError("version must be 16 or 201")
+    if version == "21":
+        return await run21(stations, seconds)
+    raise ValueError("version must be 16, 201 or 21")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--version", choices=["16", "201"], default="16")
+    parser.add_argument("--version", choices=["16", "201", "21"], default="16")
     parser.add_argument("--stations", type=int, default=20)
     parser.add_argument("--seconds", type=float, default=10.0)
     args = parser.parse_args()

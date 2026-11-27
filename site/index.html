@@ -26,7 +26,7 @@
   <p>Async Python SDK for OCPP-J (OCPP over JSON/WebSocket), for both the Charge
   Point / Charging Station and Central System / CSMS roles. PyPI name
   <code>ocpp-sdk</code>, import <code>ocpp_sdk</code>, Python 3.11+, MIT licence.</p>
-  <p class="muted">Version 1.0: core, transport, OCPP 1.6 and OCPP 2.0.1 are stable; items marked "planned" do not exist yet.</p>
+  <p class="muted">Version 1.1: core, transport, OCPP 1.6, 2.0.1 and 2.1; items marked "planned" do not exist yet.</p>
 
   <h2>Install</h2>
 <pre><code>pip install ocpp-sdk   # Python 3.11 or newer; depends on pydantic 2 and websockets</code></pre>
@@ -45,10 +45,10 @@
       <tr><td>OCPP 1.6J examples and go-ocpp-sdk interop tests</td><td>done</td></tr>
       <tr><td>OCPP 1.6 security extension (11 messages, AuthorizationKey helpers)</td><td>done</td></tr>
       <tr><td>OCPP 2.0.1 (64 messages, 16 functional blocks, appendices constants, <code>ChargingStation</code> and <code>CSMS</code>)</td><td>done</td></tr>
-      <tr><td>OCPP 2.1</td><td>planned</td></tr>
+      <tr><td>OCPP 2.1 (91 messages, 19 functional blocks, SEND and CALLRESULTERROR frames, appendices constants, <code>ChargingStation</code> and <code>CSMS</code>)</td><td>done</td></tr>
     </tbody>
   </table>
-  <p class="muted">OCPP 1.6 and 2.0.1 stations and CSMSs can be built; 2.1 cannot yet.</p>
+  <p class="muted">OCPP 1.6, 2.0.1 and 2.1 stations and CSMSs can be built.</p>
 
   <h2>Transport</h2>
   <p><code>ocpp_sdk.transport</code> is version-agnostic. A <code>Server</code> and a
@@ -384,6 +384,31 @@ async def main() -&gt; None:
 asyncio.run(main())
 </code></pre>
   <p>Examples: <code>examples/v201/csms.py</code> and <code>examples/v201/charging_station.py</code>, also tested against go-ocpp-sdk's 2.0.1 examples.</p>
+
+  <h2>OCPP 2.1</h2>
+  <p>In <code>ocpp_sdk.v21</code>, with the same shape as 2.0.1 and its <b>own</b> types (it does not import <code>ocpp_sdk.v201</code>,
+  because <code>ocpp2.1</code> is a different subprotocol): 91 messages in 19 functional-block modules (the 16 of 2.0.1 plus
+  <code>bidirectional</code>, <code>dercontrol</code> and <code>batteryswap</code>), <code>ChargingStation</code> and <code>CSMS</code> in
+  <code>ocpp_sdk.v21.charging_station</code> and <code>ocpp_sdk.v21.csms</code>, handlers in
+  <code>ocpp_sdk.v21.charging_station_handlers</code> and <code>ocpp_sdk.v21.csms_handlers</code>, and the appendices constants in
+  <code>ocpp_sdk.v21.appendices</code> (which also has the idToken types, connector types, charging limit sources, payment brands and
+  recognitions, additionalInfo types and signing methods). <code>idToken.type</code> is a plain string in 2.1.</p>
+  <ul>
+    <li><b>SEND and CALLRESULTERROR.</b> OCPP 2.1 adds two frame types that exist only on <code>ocpp2.1</code> connections (they are unknown
+    message types on the other versions). A SEND (<code>[6, ...]</code>) is an unconfirmed message: it is written at once, is not queued
+    behind calls, may go out while a call is outstanding and is never answered. The one standard SEND message is
+    <code>NotifyPeriodicEventStream</code>: <code>await station.notify_periodic_event_stream(message)</code>. The CSMS receives SENDs through
+    <code>Config.send_handler(station, message)</code> (sync or async), handled one at a time in arrival order from a bounded queue (the
+    newest is dropped when it is full); a malformed or unknown SEND is only logged. The station's own <code>Config.send_handler(message)</code>
+    is for vendor use. A CALLRESULT that cannot be decoded is answered with a CALLRESULTERROR; one received from the peer is logged.
+    A CALL of a one-way message is answered <code>ProtocolError</code>.</li>
+    <li><b>Rules beyond the schemas</b> (spec text and errata 2026-09): the 2.0.1 rules, V2X curves with at least two coordinates (and a
+    freq-watt curve for <code>LocalFrequency</code>), <code>randomizedDelay</code> only for TxProfile and TxDefaultProfile,
+    <code>pctMaxDischargePower</code> required and 0 to 100, <code>PowerMonitoringMustTrip</code> not as a stand-alone DER control,
+    <code>hv10MinMeanValue</code> and <code>hv10MinMeanTripDelay</code> together, tariff conditions with 24h times and <code>YYYY-MM-DD</code> dates.</li>
+  </ul>
+  <p>Examples: <code>examples/v21/csms.py</code> and <code>examples/v21/charging_station.py</code> (the station sends a periodic event stream), also
+  tested against go-ocpp-sdk's 2.1 examples.</p>
 
   <h2>Examples</h2>
   <p><code>examples/v16/csms.py</code> and <code>examples/v16/charge_point.py</code> are a small Central System and a

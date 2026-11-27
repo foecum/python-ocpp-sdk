@@ -3,19 +3,19 @@
 Async Python SDK for **OCPP-J** (OCPP over JSON/WebSocket), covering the Charge
 Point / Charging Station and Central System / CSMS roles.
 
-**Status: 1.0 for OCPP 1.6J and 2.0.1; OCPP 2.1 is planned.** The core (errors, date-times, OCPP-J
+**Status: 1.x: OCPP 1.6J, 2.0.1 and 2.1 are implemented.** The core (errors, date-times, OCPP-J
 framing, endpoint), the WebSocket transport (server, client with reconnect,
 security profiles 1-3) and the OCPP 1.6 message models (generated from the official
 schemas) and the high-level OCPP 1.6 `ChargePoint` and `CSMS` classes (typed calls,
 handlers per feature profile) are done, so 1.6 stations and Central Systems can be
 built, with an opt-in transaction message queue (in-memory or file-backed) and
-examples in `examples/v16`. The 1.6 security extension messages and AuthorizationKey helpers are in too. OCPP 2.0.1 is done too (`ocpp_sdk.v201`, examples in `examples/v201`). 2.1 is not done. See the documentation site (`site/index.html`).
+examples in `examples/v16`. The 1.6 security extension messages and AuthorizationKey helpers are in too. OCPP 2.0.1 is done too (`ocpp_sdk.v201`, examples in `examples/v201`). OCPP 2.1 too (`ocpp_sdk.v21`, SEND and CALLRESULTERROR frames, examples in `examples/v21`). See the documentation site (`site/index.html`).
 
 | Version   | Status  |
 |-----------|---------|
 | OCPP 1.6J | models, high-level API, transaction queue, examples, go-ocpp-sdk interop tests and the security extension done |
 | OCPP 2.0.1 | done: 64 messages, appendices constants, `ChargingStation` and `CSMS` |
-| OCPP 2.1  | planned |
+| OCPP 2.1  | done: 91 messages, SEND and CALLRESULTERROR, appendices constants, `ChargingStation` and `CSMS` |
 
 ## Quick start
 
@@ -24,6 +24,8 @@ python examples/v16/csms.py --port 9000                                  # Centr
 python examples/v16/charge_point.py --url ws://127.0.0.1:9000/CP-1       # Charge Point
 python examples/v201/csms.py --port 9001                                 # OCPP 2.0.1 CSMS
 python examples/v201/charging_station.py --url ws://127.0.0.1:9001/CS-1  # 2.0.1 station
+python examples/v21/csms.py --port 9002                                  # OCPP 2.1 CSMS
+python examples/v21/charging_station.py --url ws://127.0.0.1:9002/CS-1   # 2.1 station
 ```
 
 See `site/index.html` for the API: typed calls, handlers per feature profile, security

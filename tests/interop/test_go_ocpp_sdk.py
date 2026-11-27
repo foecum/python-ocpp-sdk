@@ -1,5 +1,5 @@
-"""Interop with go-ocpp-sdk v1.1.0: its example station and Central System speak OCPP 1.6 and
-2.0.1 to ours over a real WebSocket.
+"""Interop with go-ocpp-sdk v1.1.0: its example station and Central System speak OCPP 1.6,
+2.0.1 and 2.1 to ours over a real WebSocket.
 
 Needs the ``go`` tool and network access (or a warm module cache); skipped otherwise.
 """
@@ -17,7 +17,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 GO_VERSION = "v1.1.0"
 MODULE = "github.com/foecum/go-ocpp-sdk/examples"
-BINARIES = {"v16": ("csms", "chargepoint"), "v201": ("csms", "chargingstation")}
+BINARIES = {
+    "v16": ("csms", "chargepoint"),
+    "v201": ("csms", "chargingstation"),
+    "v21": ("csms", "chargingstation"),
+}
 
 pytestmark = pytest.mark.slow
 
@@ -164,5 +168,50 @@ async def test_our_charging_station_against_the_go_csms(go_examples: Path) -> No
         assert station.returncode == 0, text
         assert "boot: Accepted" in text and "transaction ended" in text
         assert b"PY-2" in await read_until(csms, b"PY-2")
+    finally:
+        await stop(csms)
+
+
+async def test_go_charging_station_21_against_our_csms(go_examples: Path) -> None:
+    port = await free_port()
+    csms = await spawn(sys.executable, "-u", ROOT / "examples/v21/csms.py", "--port", str(port))
+    try:
+        await read_until(csms, b"listening on")
+        station = await spawn(
+            go_examples / "v21/chargingstation",
+            "-url", f"ws://127.0.0.1:{port}/ocpp",
+            "-id", "GO-3",
+            "-sessions", "1",
+            "-session-length", "2s",
+            "-meter-every", "1s",
+            "-idle", "1s",
+        )  # fmt: skip
+        out, _ = await asyncio.wait_for(station.communicate(), timeout=60)
+        assert station.returncode == 0, out.decode()
+        seen = await read_until(csms, b"Ended")
+        assert b"GO-3: boot from" in seen and b"Started" in seen
+        assert b"HeartbeatInterval" in seen  # our CSMS read a variable from the Go station
+    finally:
+        await stop(csms)
+
+
+async def test_our_charging_station_21_against_the_go_csms(go_examples: Path) -> None:
+    port = await free_port()
+    csms = await spawn(go_examples / "v21/csms", "-addr", f"127.0.0.1:{port}")
+    try:
+        await asyncio.sleep(1)
+        station = await spawn(
+            sys.executable,
+            "-u",
+            ROOT / "examples/v21/charging_station.py",
+            "--url",
+            f"ws://127.0.0.1:{port}/ocpp/PY-3",
+        )
+        out, _ = await asyncio.wait_for(station.communicate(), timeout=60)
+        text = out.decode()
+        assert station.returncode == 0, text
+        assert "boot: Accepted" in text and "transaction ended" in text
+        assert "periodic event stream sent" in text  # the Go CSMS accepted the SEND silently
+        assert b"PY-3" in await read_until(csms, b"PY-3")
     finally:
         await stop(csms)
