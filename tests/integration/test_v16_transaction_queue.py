@@ -318,6 +318,83 @@ async def test_a_message_whose_start_is_unknown_is_dropped(world: tuple[CSMS, Re
     assert recorder.received == []
 
 
+async def test_invalid_stored_messages_and_a_failing_hook_do_not_stop_the_queue(
+    world: tuple[CSMS, Recorder],
+) -> None:
+    server, recorder = world
+    store = MemoryStore()
+    good = meter().model_dump(by_alias=True, mode="json")
+    store.save(
+        {
+            "next": 9,
+            "items": [
+                {"id": 1, "kind": "MeterValues", "payload": {"connectorId": -1}},
+                "not an item",
+                {"id": "2", "kind": "MeterValues", "payload": good},
+                {"id": 3, "kind": "MeterValues", "payload": None},
+                {"id": 4, "kind": "MeterValues", "payload": good, "attempts": 0, "tx": None},
+            ],
+            "assigned": {},
+        }
+    )
+    dropped: list[str] = []
+
+    def on_discard(kind: str, request: Any, why: str) -> None:
+        dropped.append(why)
+        raise RuntimeError("the application's hook is broken")
+
+    async with station(server) as cp:
+        queue = TransactionQueue(cp, store=store, attempts=1, on_discard=on_discard)
+        assert queue.pending == 2  # unusable items are ignored on load
+        async with queue:
+            await queue.join()
+            assert recorder.kinds() == ["MeterValues"]  # the valid one after the invalid one
+            recorder.fail_next = 1
+            queue.meter_values(meter())
+            await queue.join()  # dropped after one attempt; the hook raises again
+            queue.meter_values(meter())
+            await queue.join()
+    # the invalid stored message has no request to report, so only the failed one reached it
+    assert len(dropped) == 1 and "failed 1 times" in dropped[0]
+    assert recorder.kinds() == ["MeterValues"] * 3
+
+
+async def test_a_failing_save_while_delivering_is_retried(world: tuple[CSMS, Recorder]) -> None:
+    server, recorder = world
+
+    class Flaky(MemoryStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.fail = False
+
+        def save(self, state: dict[str, Any]) -> None:
+            if self.fail:
+                self.fail = False
+                raise OSError("disk full")
+            super().save(state)
+
+    store = Flaky()
+    waits: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        waits.append(seconds)
+
+    async with station(server) as cp:
+        queue = TransactionQueue(cp, store=store, retry_interval=7.0, sleep=fake_sleep)
+        queue.stop_transaction(stop(5))
+        store.fail = True  # the save after the delivery fails once
+        async with queue:
+            await queue.join()
+            assert waits == [7.0]
+            state = store.load()  # still lists the delivered message: at-least-once
+            assert state is not None and len(state["items"]) == 1
+            queue.meter_values(meter())  # the queue keeps going and saves again
+            await queue.join()
+    assert recorder.kinds() == ["StopTransaction", "MeterValues"]
+    state = store.load()
+    assert state is not None and state["items"] == []
+
+
 def test_stores(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     memory = MemoryStore()
     assert memory.load() is None

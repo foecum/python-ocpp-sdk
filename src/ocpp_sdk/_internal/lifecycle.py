@@ -237,6 +237,7 @@ class CSMSCore(Generic[S]):
         self._response_timeout = response_timeout
         self._queue_size = queue_size
         self._sessions: dict[str, tuple[S, SessionCore]] = {}
+        self._live: dict[Connection, S] = {}  # every connection whose on_connect hook ran
         self._server = Server(
             self._on_connect,
             on_disconnect=self._on_disconnect,
@@ -302,14 +303,25 @@ class CSMSCore(Generic[S]):
         )
         core.endpoint = endpoint
         self._sessions[connection.charge_point_id] = (session, core)
+        self._live[connection] = session
         if self._on_connect_hook is not None:
-            await resolve(self._on_connect_hook(session))
+            try:
+                await resolve(self._on_connect_hook(session))
+            except BaseException:
+                # The server never gets the sink, so close it here; no on_disconnect follows.
+                del self._live[connection]
+                self._forget(connection)
+                await endpoint.close()
+                raise
         return endpoint
 
     async def _on_disconnect(self, connection: Connection) -> None:
+        session = self._live.pop(connection, None)
+        self._forget(connection)  # unless a newer connection of the same station replaced it
+        if session is not None and self._on_disconnect_hook is not None:
+            await resolve(self._on_disconnect_hook(session))
+
+    def _forget(self, connection: Connection) -> None:
         entry: Any = self._sessions.get(connection.charge_point_id)
-        if entry is None or entry[1].connection is not connection:
-            return  # a newer connection of the same station replaced this one
-        del self._sessions[connection.charge_point_id]
-        if self._on_disconnect_hook is not None:
-            await resolve(self._on_disconnect_hook(entry[0]))
+        if entry is not None and entry[1].connection is connection:
+            del self._sessions[connection.charge_point_id]

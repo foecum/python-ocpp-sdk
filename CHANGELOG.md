@@ -2,6 +2,22 @@
 
 All notable changes. The project follows semantic versioning from 1.0.0.
 
+## Unreleased
+
+### Fixed
+
+- `ocpp_sdk.datetime.format` zero-pads years below 1000 (Python 3.11 sent `999-...`).
+- The 1.6 `TransactionQueue` keeps delivering when `on_discard` raises, a stored message no longer
+  validates, a stored item is malformed or a save fails; saves made while delivering run in a worker
+  thread.
+- The client keeps reconnecting when its `on_connect` callback or the sink's `close` raises.
+- CSMS: `on_disconnect` now runs for a session replaced by a reconnect with the same ID; a failing
+  `on_connect` hook closes the session's endpoint (and is not followed by `on_disconnect`).
+
+### Added
+
+- `Registry.__contains__` (`"Heartbeat" in registry`).
+
 ## [1.1.0] - OCPP 2.1
 
 ### Added

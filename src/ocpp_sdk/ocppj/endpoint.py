@@ -327,9 +327,7 @@ class Endpoint:
         while self._sends:
             frame = self._sends.popleft()
             try:
-                if not self._registry.is_one_way(frame.action) and frame.action in (
-                    self._registry.actions()
-                ):
+                if frame.action in self._registry and not self._registry.is_one_way(frame.action):
                     logger.warning("dropping SEND of %s: it needs an answer", frame.action)
                     continue
                 message = self._registry.decode_request(frame.action, frame.payload)

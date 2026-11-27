@@ -28,6 +28,7 @@ def test_lookup() -> None:
     registry = make()
     assert registry.version is Version.OCPP201
     assert registry.actions() == {"Heartbeat", "Echo"}
+    assert "Echo" in registry and "Unknown" not in registry
     assert registry.request_type("Echo") is EchoRequest
     assert registry.response_type("Echo") is EchoResponse
 

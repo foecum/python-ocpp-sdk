@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import tempfile
+import threading
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -64,7 +65,9 @@ DiscardHook = Callable[[str, BaseModel, str], Awaitable[None] | None]
 class TransactionStore(Protocol):
     """Where a :class:`TransactionQueue` keeps its state between runs.
 
-    The state is a JSON-compatible ``dict``; ``save`` is called after every change.
+    The state is a JSON-compatible ``dict``; ``save`` is called after every change. Saves made
+    while delivering run in a worker thread (one at a time), so ``save`` must not touch the event
+    loop.
     """
 
     def load(self) -> dict[str, Any] | None:
@@ -209,6 +212,9 @@ class TransactionQueue:
         self._idle = asyncio.Event()
         self._idle.set()
         self._task: asyncio.Task[None] | None = None
+        self._save_lock = threading.Lock()
+        self._version = 0
+        self._saved_version = 0
         self._load()
 
     # ------------------------------------------------------------------ public API
@@ -275,17 +281,36 @@ class TransactionQueue:
         state = self._store.load()
         if not state:
             return
-        self._items = [i for i in state.get("items", []) if i.get("kind") in _KINDS]
+        self._items = [i for i in state.get("items", []) if _usable(i)]
+        for item in self._items:
+            item.setdefault("attempts", 0)
+            item.setdefault("tx", None)
         self._assigned = {str(k): int(v) for k, v in state.get("assigned", {}).items()}
         self._next = int(state.get("next", 1))
         if self._items:
             self._idle.clear()
 
-    def _save(self) -> None:
+    def _snapshot(self) -> tuple[int, dict[str, Any]]:
         live = {str(i["tx"]) for i in self._items if i["tx"] is not None}
         live |= {str(i["id"]) for i in self._items if i["kind"] == "StartTransaction"}
         self._assigned = {k: v for k, v in self._assigned.items() if k in live}
-        self._store.save({"next": self._next, "items": self._items, "assigned": self._assigned})
+        self._version += 1
+        state = {"next": self._next, "items": self._items, "assigned": self._assigned}
+        return self._version, json.loads(json.dumps(state))  # a copy the thread can write
+
+    def _write(self, version: int, state: dict[str, Any]) -> None:
+        with self._save_lock:  # never let an older snapshot overwrite a newer one
+            if version > self._saved_version:
+                self._store.save(state)
+                self._saved_version = version
+
+    def _save(self) -> None:
+        """Save on the event loop (enqueueing is synchronous and durable when it returns)."""
+        self._write(*self._snapshot())
+
+    async def _save_async(self) -> None:
+        """Save in a worker thread, so a slow disk does not stall the event loop."""
+        await asyncio.to_thread(self._write, *self._snapshot())
 
     def _enqueue(
         self, kind: str, request: BaseModel, transaction: Transaction | None
@@ -321,7 +346,12 @@ class TransactionQueue:
                 await self._wakeup.wait()
                 continue
             await self._cp.wait_online()
-            await self._deliver(self._items[0])
+            item = self._items[0]
+            try:
+                await self._deliver(item)
+            except Exception:  # keep delivering; e.g. the store failed to save
+                logger.exception("delivering %s failed", item["kind"])
+                await self._sleep(self._retry_interval)
 
     async def _deliver(self, item: dict[str, Any]) -> None:
         payload = dict(item["payload"])
@@ -331,7 +361,11 @@ class TransactionQueue:
                 await self._discard(item, "the transaction's StartTransaction was dropped")
                 return
             payload["transactionId"] = assigned
-        request = _REGISTRY.decode_request(item["kind"], payload)
+        try:
+            request = _REGISTRY.decode_request(item["kind"], payload)
+        except CallError as exc:  # e.g. a stored message from another version of the application
+            await self._discard(item, f"the stored message is invalid: {exc}")
+            return
         try:
             answer = await self._send(item["kind"], request)
         except NotConnectedError:
@@ -342,7 +376,7 @@ class TransactionQueue:
             if item["attempts"] >= self._attempts:
                 await self._discard(item, f"failed {item['attempts']} times: {exc}")
             else:
-                self._save()
+                await self._save_async()
                 await self._sleep(self._retry_interval * item["attempts"])
             return
         if isinstance(answer, StartTransactionConfirmation):
@@ -352,7 +386,7 @@ class TransactionQueue:
                 handle.transaction_id = answer.transaction_id
                 handle._done.set()
         self._items.remove(item)
-        self._save()
+        await self._save_async()
 
     async def _send(self, kind: str, request: BaseModel) -> BaseModel:
         if isinstance(request, StartTransactionRequest):
@@ -373,12 +407,29 @@ class TransactionQueue:
                 handle._done.set()
         for gone in dropped:
             self._items.remove(gone)
-        self._save()
+        await self._save_async()
         for gone in dropped:
             why = reason if gone is item else "the transaction's StartTransaction was dropped"
             logger.warning("dropped %s: %s", gone["kind"], why)
-            if self._on_discard is not None:
+            if self._on_discard is None:
+                continue
+            try:
                 request = _REGISTRY.decode_request(gone["kind"], gone["payload"])
+            except CallError:
+                continue  # an invalid stored message has no request to report
+            try:
                 result = self._on_discard(gone["kind"], request, why)
                 if inspect.isawaitable(result):
                     await result
+            except Exception:
+                logger.exception("on_discard failed for %s", gone["kind"])
+
+
+def _usable(item: object) -> bool:
+    """Whether a stored item has the fields delivery needs."""
+    return (
+        isinstance(item, dict)
+        and item.get("kind") in _KINDS
+        and isinstance(item.get("id"), int)
+        and isinstance(item.get("payload"), dict)
+    )

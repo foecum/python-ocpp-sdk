@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 
 import pytest
 from websockets.asyncio.client import connect
+from websockets.exceptions import ConnectionClosedError
+from websockets.typing import Subprotocol
 
 from ocpp_sdk.errors import CallError, CallTimeoutError, NotConnectedError, ValidationError
 from ocpp_sdk.transport import Reconnect
@@ -338,6 +340,7 @@ async def test_connection_lost_mid_call_then_reconnect(csms: tuple[CSMS, CsmsCor
 async def test_duplicate_station_replaces_the_old_session_and_hooks_run() -> None:
     events: list[str] = []
     sessions: list[Session] = []
+    gone: list[Session] = []
 
     async def on_connect(session: Session) -> None:
         events.append(f"up:{session.charge_point_id}")
@@ -345,6 +348,7 @@ async def test_duplicate_station_replaces_the_old_session_and_hooks_run() -> Non
 
     def on_disconnect(session: Session) -> None:
         events.append(f"down:{session.charge_point_id}")
+        gone.append(session)
 
     server = CSMS(
         Config(core=CsmsCoreHandler()),
@@ -364,8 +368,42 @@ async def test_duplicate_station_replaces_the_old_session_and_hooks_run() -> Non
                 assert not sessions[0].connected
                 with pytest.raises(NotConnectedError):
                     await sessions[0].reset(ResetRequest(type=ResetType.SOFT))
-            await until(lambda: "down:CP-1" in events)
-        assert events == ["up:CP-1", "up:CP-1", "down:CP-1"]
+                await until(lambda: len(gone) == 1)  # the replaced session got its hook
+                assert gone == [sessions[0]]
+            await until(lambda: len(gone) == 2)
+        assert events == ["up:CP-1", "up:CP-1", "down:CP-1", "down:CP-1"]
+        assert gone == sessions
+        assert server.charge_point_ids() == []
+    finally:
+        await server.shutdown(timeout=3)
+
+
+async def test_a_failing_on_connect_hook_closes_the_session() -> None:
+    sessions: list[Session] = []
+    downs: list[Session] = []
+
+    def on_connect(session: Session) -> None:
+        sessions.append(session)
+        raise RuntimeError("database is down")
+
+    server = CSMS(
+        Config(core=CsmsCoreHandler()),
+        port=0,
+        ping_interval=None,
+        on_connect=on_connect,
+        on_disconnect=downs.append,
+    )
+    await server.start()
+    try:
+        async with connect(url(server), subprotocols=[Subprotocol("ocpp1.6")]) as ws:
+            with pytest.raises(ConnectionClosedError) as closed:
+                await ws.recv()
+        assert closed.value.rcvd is not None and closed.value.rcvd.code == 1011
+        assert len(sessions) == 1 and not sessions[0].connected
+        with pytest.raises(NotConnectedError):
+            await sessions[0].reset(ResetRequest(type=ResetType.SOFT))
+        assert server.charge_point_ids() == []
+        assert downs == []  # on_disconnect only follows a successful on_connect
     finally:
         await server.shutdown(timeout=3)
 

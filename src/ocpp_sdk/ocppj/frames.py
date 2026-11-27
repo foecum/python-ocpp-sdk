@@ -199,7 +199,6 @@ def _payload(value: object) -> dict[str, Any] | None:
 
 
 def _parse_call(data: list[Any], uid: str | None, framework: str) -> Call:
-    unique_id = uid or UNREADABLE_ID
     if uid is None:
         raise FrameError(
             framework,
@@ -216,7 +215,7 @@ def _parse_call(data: list[Any], uid: str | None, framework: str) -> Call:
     payload = _payload(data[3])
     if payload is None:
         raise FrameError(
-            framework, "payload is not a JSON object", unique_id=unique_id, message_type=CALL
+            framework, "payload is not a JSON object", unique_id=uid, message_type=CALL
         )
     return Call(uid, action, payload)
 

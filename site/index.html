@@ -209,7 +209,9 @@ assert answer.status is RegistrationStatus.ACCEPTED</code></pre>
     <code>ChargePoint</code> reconnects per OCPP-J 5.4 (<code>reconnect=Reconnect(...)</code>, <code>None</code> turns it off).</li>
     <li><b>CSMS.</b> <code>charge_point_ids()</code>, <code>charge_point(id)</code>, <code>await for_each(fn)</code>
     (identity order), <code>on_connect</code>/<code>on_disconnect</code> hooks, <code>await shutdown(timeout=...)</code>.
-    A station that reconnects gets a new session; the old session raises <code>NotConnectedError</code>.</li>
+    A station that reconnects gets a new session; the old session raises <code>NotConnectedError</code>.
+    Every session whose <code>on_connect</code> hook returned gets exactly one <code>on_disconnect</code>, a replaced
+    one too. If <code>on_connect</code> raises, the connection is closed (1011) and no <code>on_disconnect</code> follows.</li>
   </ul>
 <pre><code>import asyncio
 from datetime import UTC, datetime
@@ -268,7 +270,9 @@ asyncio.run(main())
   (use any placeholder in the request); if the start is dropped they are dropped too.
   <code>queue.join()</code> waits until the queue is empty and <code>queue.pending</code> counts what is waiting.
   The state lives in a <code>TransactionStore</code>: <code>MemoryStore</code> (default) or
-  <code>FileStore(path)</code> (JSON file, replaced atomically on every change, so a restart picks up where it stopped).</p>
+  <code>FileStore(path)</code> (JSON file, replaced atomically on every change, so a restart picks up where it stopped).
+  Saves made while delivering run in a worker thread, so a slow disk does not stall the event loop; a failing
+  <code>on_discard</code>, a stored message that no longer validates or a failed save is logged and the queue keeps going.</p>
 <pre><code>import asyncio
 from datetime import UTC, datetime
 

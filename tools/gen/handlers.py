@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-import re
 import textwrap
 
 from tools.gen.emit import HEADER, _sorted_all
 from tools.gen.profiles import Module, Profile
-from tools.gen.schema import MessageIR, SchemaIR
+from tools.gen.schema import MessageIR, SchemaIR, snake
 
 SIDES = ("charge_point", "csms")
-
-
-def snake(action: str) -> str:
-    """``BootNotification`` -> ``boot_notification``."""
-    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_", action).lower()
 
 
 _TITLE = {"charge_point": "Charge Point", "csms": "Central System"}

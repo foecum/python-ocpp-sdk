@@ -185,6 +185,9 @@ class Client:
                 except (OSError, WebSocketException, TimeoutError) as exc:
                     self._last_error = exc
                     logger.warning("connection attempt failed: %s", exc)
+                except Exception as exc:  # on_connect or the sink failed: retry, do not give up
+                    self._last_error = exc
+                    logger.exception("connection failed")
                 if self._reconnect is None:
                     return
                 delay = self._reconnect.delay(waits, self._rng)

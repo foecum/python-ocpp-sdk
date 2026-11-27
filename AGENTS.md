@@ -647,6 +647,16 @@ Record each decision as: date — decision — reason.
   pair as required-by-rule.
 - 2026-11-26 — Client `__aenter__` waits for the first connection (with reconnect
   enabled it keeps retrying; use `start()` + `wait_connected(timeout)` to bound it).
+- 2026-11-27 — Code review fixes. CSMS hooks: every session whose `on_connect` hook returned gets
+  exactly one `on_disconnect`, including one replaced by a duplicate-ID reconnect (it used to be
+  skipped); if `on_connect` raises, the endpoint is closed and no `on_disconnect` follows. The client
+  retries after any exception from `on_connect` or the sink, not only network errors. The 1.6
+  transaction queue logs and survives a raising `on_discard`, invalid stored messages (dropped, no
+  hook call) and malformed stored items (ignored on load); any other delivery error is logged and
+  retried after `retry_interval`. Saves made while delivering run via `asyncio.to_thread` (one at a
+  time, older snapshots never overwrite newer ones); saves from the synchronous enqueue methods stay
+  on the loop so a queued message is stored when the call returns. `TransactionStore.save` may
+  therefore run in a worker thread.
 
 ## 9. Known gaps / skipped spec items
 

@@ -145,6 +145,32 @@ async def test_waits_after_a_lost_connection_and_reconnects() -> None:
             assert client_sinks.sinks[0].closed.is_set()
 
 
+async def test_a_failing_on_connect_is_retried(caplog: pytest.LogCaptureFixture) -> None:
+    sinks, client_sinks = Sinks(), Sinks()
+    sleeps = Sleeps()
+    calls = 0
+
+    async def on_connect(conn: Connection) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ValueError("cannot build the endpoint")
+        return await client_sinks.on_connect(conn)
+
+    async with server_for(sinks) as server:
+        client = Client(
+            f"ws://127.0.0.1:{server.port}/CP1",
+            on_connect,
+            reconnect=Reconnect(wait_minimum=1, random_range=0, repeat_times=3),
+            sleep=sleeps,
+            rng=lambda: 0.0,
+        )
+        with caplog.at_level(logging.ERROR, "ocpp_sdk.transport.client"):
+            async with client:
+                assert calls == 2 and sleeps.delays == [1]
+        assert "connection failed" in caplog.text
+
+
 async def test_backoff_resets_after_a_successful_connection() -> None:
     sinks, client_sinks = Sinks(), Sinks()
     sleeps = Sleeps()

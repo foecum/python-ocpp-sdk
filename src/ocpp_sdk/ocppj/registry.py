@@ -111,6 +111,10 @@ class Registry:
         kind = error.issues[0]["type"] if error.issues else "value_error"
         return code_for_version(_classify(kind), self._version)
 
+    def __contains__(self, action: object) -> bool:
+        """Whether ``action`` is registered (``"BootNotification" in registry``)."""
+        return action in self._requests
+
     def actions(self) -> frozenset[str]:
         """All registered action names."""
         return frozenset(self._requests)
