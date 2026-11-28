@@ -3,217 +3,317 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>python-ocpp-sdk</title>
+<title>ocpp-sdk for Python</title>
+<meta name="description" content="Async Python SDK for OCPP-J 1.6, 2.0.1 and 2.1: charging station and CSMS, typed Pydantic models generated from the official schemas.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f7b5f'/%3E%3Cpath d='M18 5 9 18h6l-1 9 9-13h-6z' fill='white'/%3E%3C/svg%3E">
 <style>
-  :root { color-scheme: light dark; --bg:#fff; --fg:#1b1f24; --muted:#59636e; --line:#d0d7de; --accent:#0969da; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#0d1117; --fg:#e6edf3; --muted:#8b949e; --line:#30363d; --accent:#58a6ff; }
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f9fa;
+    --surface: #ffffff;
+    --surface-2: #eef2f4;
+    --fg: #15191e;
+    --muted: #5a6470;
+    --line: #dde3e8;
+    --accent: #0c7558;
+    --accent-fg: #ffffff;
+    --accent-soft: #e2f3ed;
+    --code-bg: #f3f6f8;
+    --code-fg: #1d2329;
+    --tok-kw: #a3207a;
+    --tok-str: #146a3f;
+    --tok-com: #6c7682;
+    --tok-num: #a14d00;
+    --tok-fn: #1f5fbf;
+    --tok-ty: #7a4bb5;
+    --shadow: 0 1px 2px rgb(16 24 32 / 6%), 0 4px 16px rgb(16 24 32 / 5%);
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
-  body { margin:0; background:var(--bg); color:var(--fg);
-    font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  main { max-width:48rem; margin:0 auto; padding:2rem 1rem; }
-  a { color:var(--accent); }
-  .muted { color:var(--muted); }
-  table { border-collapse:collapse; width:100%; }
-  th, td { text-align:left; padding:.5rem .75rem; border-bottom:1px solid var(--line); }
-  code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
-  pre { overflow-x:auto; padding:.75rem 1rem; border:1px solid var(--line); border-radius:6px; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0e11;
+      --surface: #12161a;
+      --surface-2: #192026;
+      --fg: #e5e9ed;
+      --muted: #98a3ae;
+      --line: #252d35;
+      --accent: #3ccf9c;
+      --accent-fg: #06221a;
+      --accent-soft: #10291f;
+      --code-bg: #0f1418;
+      --code-fg: #dbe2e8;
+      --tok-kw: #f08ad0;
+      --tok-str: #8fd8a8;
+      --tok-com: #7d8894;
+      --tok-num: #f0b072;
+      --tok-fn: #82b6ff;
+      --tok-ty: #c4a3ff;
+      --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 16px rgb(0 0 0 / 25%);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { scroll-padding-top: 5rem; -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.65 var(--sans); }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:hover { text-decoration-thickness: 2px; }
+  code, pre, kbd { font-family: var(--mono); font-size: .875em; }
+  :not(pre) > code {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px;
+    padding: .05em .35em; overflow-wrap: anywhere;
+  }
+  h1, h2, h3 { line-height: 1.25; letter-spacing: -.01em; }
+  h2 { font-size: 1.6rem; margin: 3.5rem 0 1rem; padding-top: .25rem; }
+  h3 { font-size: 1.15rem; margin: 2.25rem 0 .75rem; }
+  h2 .anchor, h3 .anchor {
+    margin-left: .4rem; color: var(--muted); text-decoration: none; opacity: 0; font-weight: 400;
+  }
+  h2:hover .anchor, h3:hover .anchor, .anchor:focus { opacity: 1; }
+  p, ul { margin: 0 0 1rem; }
+  ul { padding-left: 1.25rem; }
+  li { margin: .35rem 0; }
+  .muted { color: var(--muted); }
+  .skip { position: absolute; left: -999px; }
+  .skip:focus { left: 1rem; top: .75rem; z-index: 20; background: var(--surface); padding: .4rem .8rem; }
+
+  /* top bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner {
+    max-width: 76rem; margin: 0 auto; padding: .7rem 16px;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .brand { display: flex; align-items: center; gap: .55rem; color: var(--fg); text-decoration: none; font-weight: 650; }
+  .brand svg { width: 26px; height: 26px; flex: none; }
+  .pill {
+    font: 600 .72rem/1 var(--sans); padding: .3rem .5rem; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .topnav { margin-left: auto; display: flex; gap: 1.1rem; font-size: .92rem; }
+  .topnav a { color: var(--muted); text-decoration: none; }
+  .topnav a:hover { color: var(--fg); }
+  @media (max-width: 30rem) { .topnav .wide { display: none; } }
+
+  /* hero */
+  .hero { border-bottom: 1px solid var(--line);
+    background:
+      radial-gradient(60rem 22rem at 85% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+      var(--bg);
+  }
+  .hero-inner { max-width: 76rem; margin: 0 auto; padding: 3.5rem 16px 3rem; }
+  .eyebrow { font-size: .8rem; font-weight: 650; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin: 0 0 .75rem; }
+  .hero h1 { font-size: clamp(2rem, 5vw, 3rem); margin: 0 0 1rem; max-width: 18ch; letter-spacing: -.025em; }
+  .lede { font-size: 1.15rem; color: var(--muted); max-width: 40rem; margin: 0 0 1.75rem; }
+  .install {
+    display: flex; align-items: center; gap: .75rem; max-width: 32rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .4rem .4rem .4rem 1rem; box-shadow: var(--shadow);
+  }
+  .install code { flex: 1; font-size: .95rem; overflow-x: auto; white-space: nowrap; background: none; border: 0; padding: 0; }
+  .install code::before { content: "$ "; color: var(--muted); }
+  .facts { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1.25rem 0 0; padding: 0; list-style: none; }
+  .facts li { margin: 0; font-size: .85rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: .2rem .7rem; background: var(--surface); }
+
+  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); margin-top: 2.5rem; }
+  .card {
+    display: block; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.1rem 1.2rem; color: inherit; text-decoration: none; box-shadow: var(--shadow);
+    transition: border-color .15s, transform .15s;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .card .v { font: 700 1.35rem/1.2 var(--sans); }
+  .card .v small { font-size: .8rem; font-weight: 500; color: var(--muted); margin-left: .35rem; }
+  .card .count { margin: .35rem 0 .5rem; font-size: .9rem; color: var(--accent); font-weight: 600; }
+  .card p { margin: 0; font-size: .92rem; color: var(--muted); }
+
+  /* page layout */
+  .layout { max-width: 76rem; margin: 0 auto; padding: 0 16px 4rem; display: grid; grid-template-columns: minmax(0, 1fr); }
+  main { min-width: 0; max-width: 48rem; }
+  .toc { margin: 1.5rem 0 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  .toc summary { cursor: pointer; padding: .7rem 1rem; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
+  .toc summary::-webkit-details-marker { display: none; }
+  .toc summary::after { content: "+"; color: var(--muted); }
+  .toc[open] summary::after { content: "\2013"; }
+  .toc nav { padding: 0 1rem .75rem; }
+  .toc .group { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: .9rem 0 .3rem; }
+  .toc ul { list-style: none; padding: 0; margin: 0; }
+  .toc li { margin: 0; }
+  .toc a { display: block; padding: .28rem .6rem; margin-left: -.6rem; border-radius: 6px; color: var(--fg); text-decoration: none; font-size: .92rem; }
+  .toc a:hover { background: var(--surface-2); }
+  .toc a[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .toc .sub a { padding-left: 1.4rem; font-size: .86rem; color: var(--muted); }
+  @media (min-width: 64rem) {
+    .layout { grid-template-columns: 14.5rem minmax(0, 1fr); gap: 3.5rem; padding: 0 2rem 5rem; }
+    .toc { position: sticky; top: 4.75rem; align-self: start; max-height: calc(100vh - 6rem); overflow-y: auto;
+      border: 0; background: none; margin-top: 2.25rem; }
+    .js .toc summary { display: none; }
+    .toc nav { padding: 0; }
+    .toc .group:first-child { margin-top: 0; }
+  }
+
+  /* content blocks */
+  .table-wrap { overflow-x: auto; margin: 0 0 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { text-align: left; vertical-align: top; padding: .6rem .9rem; border-bottom: 1px solid var(--line); }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--surface-2); }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { white-space: nowrap; }
+  td.wrap, td.wrap:first-child { white-space: normal; }
+  .ok { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; font-weight: 650; color: var(--accent);
+    background: var(--accent-soft); border-radius: 999px; padding: .1rem .55rem; white-space: nowrap; }
+  .ok::before { content: "\2713"; }
+
+  .points { list-style: none; padding: 0; display: grid; gap: .75rem; }
+  .points li { margin: 0; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 8px; padding: .8rem 1rem; }
+  .points li > b:first-child { display: block; margin-bottom: .15rem; }
+
+  .note { border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); background: var(--accent-soft);
+    border-radius: var(--radius); padding: .8rem 1rem; margin: 0 0 1.25rem; font-size: .95rem; }
+  .note > b:first-child { color: var(--accent); }
+
+  figure.code { margin: 0 0 1.5rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--code-bg); overflow: hidden; }
+  figure.code figcaption { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: .4rem .5rem .4rem .9rem; border-bottom: 1px solid var(--line); font-size: .8rem; color: var(--muted); background: var(--surface-2); }
+  pre { margin: 0; padding: .9rem 1rem; overflow-x: auto; color: var(--code-fg); line-height: 1.55; tab-size: 4; }
+  pre code { font-size: .84rem; }
+  .copy { font: 600 .75rem/1 var(--sans); color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+    border-radius: 6px; padding: .35rem .6rem; cursor: pointer; }
+  .copy:hover { color: var(--fg); border-color: var(--muted); }
+  .install .copy { padding: .5rem .75rem; }
+  .t-kw { color: var(--tok-kw); }
+  .t-str { color: var(--tok-str); }
+  .t-com { color: var(--tok-com); font-style: italic; }
+  .t-num { color: var(--tok-num); }
+  .t-fn { color: var(--tok-fn); }
+  .t-ty { color: var(--tok-ty); }
+
+  .tabs { display: flex; gap: .25rem; margin: 0 0 -1px; position: relative; }
+  .tabs button { font: 600 .88rem/1 var(--sans); color: var(--muted); background: none; border: 1px solid transparent;
+    border-bottom: 0; border-radius: 8px 8px 0 0; padding: .6rem .9rem; cursor: pointer; }
+  .tabs button[aria-selected="true"] { color: var(--fg); background: var(--surface-2); border-color: var(--line); }
+  .tabs + .panel figure.code { border-top-left-radius: 0; }
+  .js .panel[hidden] { display: none; }
+  .panel-title { display: none; }
+  .no-js .panel-title { display: block; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+  footer .inner { max-width: 76rem; margin: 0 auto; padding: 1.5rem 16px 2.5rem; display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; justify-content: space-between; }
+  @media (min-width: 64rem) { footer .inner { padding-left: 2rem; padding-right: 2rem; } }
 </style>
 </head>
-<body>
-<main>
-  <h1>python-ocpp-sdk</h1>
-  <p>Async Python SDK for OCPP-J (OCPP over JSON/WebSocket), for both the Charge
-  Point / Charging Station and Central System / CSMS roles. PyPI name
-  <code>ocpp-sdk</code>, import <code>ocpp_sdk</code>, Python 3.11+, MIT licence.</p>
-  <p class="muted">Version 1.1: core, transport, OCPP 1.6, 2.0.1 and 2.1; items marked "planned" do not exist yet.</p>
+<body class="no-js">
+<a class="skip" href="#content">Skip to content</a>
 
-  <h2>Install</h2>
-<pre><code>pip install ocpp-sdk   # Python 3.11 or newer; depends on pydantic 2 and websockets</code></pre>
-  <p class="muted">Published on PyPI once the owner has pushed the release tags. Until then install from the repository
-  (<code>pip install git+https://github.com/foecum/python-ocpp-sdk</code>).</p>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#top" aria-label="ocpp-sdk home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M18 5 9 18h6l-1 9 9-13h-6z" fill="var(--accent-fg)"/></svg>
+      ocpp-sdk
+    </a>
+    <span class="pill">v1.1.1</span>
+    <nav class="topnav" aria-label="Project links">
+      <a href="https://github.com/foecum/python-ocpp-sdk">GitHub</a>
+      <a href="https://pypi.org/project/ocpp-sdk/">PyPI</a>
+      <a class="wide" href="https://github.com/foecum/go-ocpp-sdk">Go SDK</a>
+    </nav>
+  </div>
+</header>
 
-  <h2>Status</h2>
-  <table>
-    <thead><tr><th>Part</th><th>Status</th></tr></thead>
-    <tbody>
-      <tr><td>Core: errors, date-times, OCPP-J frames, registry, endpoint</td><td>done</td></tr>
-      <tr><td>WebSocket transport: server, client with reconnect, security profiles 1-3</td><td>done</td></tr>
-      <tr><td>OCPP 1.6J message models (39 messages: six feature profiles and the security extension)</td><td>done</td></tr>
-      <tr><td>OCPP 1.6J high-level <code>ChargePoint</code> and <code>CSMS</code> API</td><td>done</td></tr>
-      <tr><td>OCPP 1.6J transaction message queue</td><td>done</td></tr>
-      <tr><td>OCPP 1.6J examples and go-ocpp-sdk interop tests</td><td>done</td></tr>
-      <tr><td>OCPP 1.6 security extension (11 messages, AuthorizationKey helpers)</td><td>done</td></tr>
-      <tr><td>OCPP 2.0.1 (64 messages, 16 functional blocks, appendices constants, <code>ChargingStation</code> and <code>CSMS</code>)</td><td>done</td></tr>
-      <tr><td>OCPP 2.1 (91 messages, 19 functional blocks, SEND and CALLRESULTERROR frames, appendices constants, <code>ChargingStation</code> and <code>CSMS</code>)</td><td>done</td></tr>
-    </tbody>
-  </table>
-  <p class="muted">OCPP 1.6, 2.0.1 and 2.1 stations and CSMSs can be built.</p>
+<section class="hero" id="top">
+  <div class="hero-inner">
+    <p class="eyebrow">Open Charge Point Protocol for Python</p>
+    <h1>OCPP 1.6, 2.0.1 and 2.1, async and typed</h1>
+    <p class="lede">An asyncio SDK for OCPP-J (OCPP over JSON/WebSocket), for both the Charge Point / Charging Station and the
+      Central System / CSMS role. Every message is a Pydantic model generated from the official schemas and validated on send and receive.</p>
+    <div class="install">
+      <code id="install-cmd">pip install ocpp-sdk</code>
+      <button class="copy" type="button" data-copy="install-cmd" hidden>Copy</button>
+    </div>
+    <ul class="facts" aria-label="Facts">
+      <li>Python 3.11+</li>
+      <li>import <code>ocpp_sdk</code></li>
+      <li>pydantic 2 + websockets</li>
+      <li>fully typed</li>
+      <li>MIT licence</li>
+    </ul>
+    <div class="cards">
+      <a class="card" href="#v16">
+        <div class="v">OCPP 1.6<small>ocpp1.6</small></div>
+        <div class="count">39 messages</div>
+        <p>Six feature profiles and the security extension, <code>ChargePoint</code> and <code>CSMS</code>, an opt-in transaction message queue.</p>
+      </a>
+      <a class="card" href="#v201">
+        <div class="v">OCPP 2.0.1<small>ocpp2.0.1</small></div>
+        <div class="count">64 messages &middot; 16 blocks</div>
+        <p><code>ChargingStation</code> and <code>CSMS</code>, constants for the standardized components and variables.</p>
+      </a>
+      <a class="card" href="#v21">
+        <div class="v">OCPP 2.1<small>ocpp2.1</small></div>
+        <div class="count">91 messages &middot; 19 blocks</div>
+        <p>Bidirectional charging, DER control and battery swap, plus the new SEND and CALLRESULTERROR frames.</p>
+      </a>
+    </div>
+  </div>
+</section>
 
-  <h2>Transport</h2>
-  <p><code>ocpp_sdk.transport</code> is version-agnostic. A <code>Server</code> and a
-  <code>Client</code> hand every received text frame to a <em>sink</em> (anything with
-  <code>feed(raw)</code> and <code>async close()</code>; <code>ocppj.Endpoint</code> is one).</p>
-<pre>import asyncio
+<div class="layout">
+  <details class="toc" id="toc">
+    <summary>On this page</summary>
+    <nav aria-label="On this page">
+      <div class="group">Get started</div>
+      <ul>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#quick-start">Quick start</a></li>
+        <li><a href="#examples">Examples</a></li>
+      </ul>
+      <div class="group">Protocol versions</div>
+      <ul>
+        <li><a href="#v16">OCPP 1.6</a></li>
+        <li class="sub"><a href="#v16-messages">Messages</a></li>
+        <li class="sub"><a href="#v16-api">Charge Point and CSMS</a></li>
+        <li class="sub"><a href="#v16-queue">Transaction queue</a></li>
+        <li><a href="#v201">OCPP 2.0.1</a></li>
+        <li><a href="#v21">OCPP 2.1</a></li>
+      </ul>
+      <div class="group">Reference</div>
+      <ul>
+        <li><a href="#transport">Transport</a></li>
+        <li><a href="#security">Security profiles</a></li>
+        <li><a href="#core">Core</a></li>
+        <li><a href="#errors">Error handling</a></li>
+        <li><a href="#logging">Logging</a></li>
+        <li><a href="#status">Status</a></li>
+      </ul>
+    </nav>
+  </details>
 
-from ocpp_sdk.transport import Client, Connection, Server
+<main id="content">
+  <h2 id="install">Install <a class="anchor" href="#install" aria-label="Link to Install">#</a></h2>
+  <figure class="code"><figcaption>Shell</figcaption>
+<pre data-lang="shell"><code>pip install ocpp-sdk   # Python 3.11 or newer; depends on pydantic 2 and websockets</code></pre></figure>
+  <p>The distribution is <code>ocpp-sdk</code> on PyPI and the import package is <code>ocpp_sdk</code>. It ships type hints
+  (<code>py.typed</code>), is async-first on <code>asyncio</code> and has no sync API.</p>
 
-
-class Printer:
-    def __init__(self, name: str) -&gt; None:
-        self.name = name
-
-    def feed(self, raw: str) -&gt; None:
-        print(self.name, "received", raw)
-
-    async def close(self) -&gt; None:
-        pass
-
-
-async def main() -&gt; None:
-    async def csms_connect(conn: Connection) -&gt; Printer:
-        return Printer("csms")
-
-    async def station_connect(conn: Connection) -&gt; Printer:
-        return Printer("station")
-
-    async with Server(csms_connect, port=0) as server:
-        url = f"ws://127.0.0.1:{server.port}/ocpp/CP001"
-        async with Client(url, station_connect) as client:
-            assert client.connection is not None
-            await client.connection.send('[2,"1","Heartbeat",{}]')
-            await asyncio.sleep(0.1)
-
-
-asyncio.run(main())</pre>
-  <ul>
-    <li>The charge point ID is the last URL path segment (1-48 characters, no <code>:</code> or <code>/</code>).
-    An invalid or unknown ID (<code>known_id</code>) answers HTTP 404.</li>
-    <li>The server picks the version by its own order of preference among the subprotocols the client
-    offers (<code>ocpp1.6</code>, <code>ocpp2.0.1</code>, <code>ocpp2.1</code>). With no common one the
-    handshake completes and the connection is closed with 1002.</li>
-    <li>A second connection with the same ID replaces the first (closed with 1008).</li>
-    <li>Compression is off, binary frames are refused (1003), ping every 30 s with a 10 s timeout,
-    messages up to 1 MiB (1009 above that).</li>
-    <li><code>Server.shutdown(timeout)</code> closes every connection with 1001, and a handshake that
-    finishes during shutdown is closed with 1001 too.</li>
-    <li><code>Client</code> reconnects as in OCPP-J section 5.4 (<code>Reconnect(wait_minimum=1,
-    random_range=2, repeat_times=6)</code>): the wait applies after every lost connection and failed
-    attempt, doubles up to <code>repeat_times</code> times, and resets after a successful connection.
-    A missing common subprotocol counts as a failed attempt. <code>reconnect=None</code> makes one attempt.</li>
-  </ul>
-
-  <h2>Security profiles</h2>
-  <table>
-    <thead><tr><th>Profile</th><th>Server</th><th>Client</th></tr></thead>
-    <tbody>
-      <tr><td>1: Basic auth</td><td><code>authenticate=fn(id, password)</code> (401 on failure)</td><td><code>password=...</code></td></tr>
-      <tr><td>2: TLS + Basic auth</td><td><code>ssl_context=server_ssl_context(cert, key)</code></td><td><code>ssl_context=client_ssl_context(cafile=...)</code></td></tr>
-      <tr><td>3: mutual TLS</td><td><code>server_ssl_context(..., client_ca=...)</code> and <code>check_certificate_identity=True</code>
-        (certificate CN must equal the ID, optionally O must contain <code>operator_name</code>; 403 otherwise)</td>
-        <td><code>client_ssl_context(cafile, certfile, keyfile)</code></td></tr>
-    </tbody>
-  </table>
-  <p>TLS 1.2 or newer, with ECDHE AES-GCM suites; TLS 1.0 and 1.1 are not supported.</p>
-  <p>The 1.6 Basic-auth password is the <code>AuthorizationKey</code>: 16 to 20 bytes as 32 to 40 hexadecimal digits, sent as that
-  text. <code>ocpp_sdk.transport.auth.check_authorization_key(key)</code> validates one and
-  <code>generate_authorization_key()</code> makes a new 40-digit key.</p>
-
-  <h2>Core</h2>
-  <ul>
-    <li><code>ocpp_sdk.errors</code>: <code>OCPPError</code> and its subclasses <code>CallTimeoutError</code>,
-    <code>NotConnectedError</code>, <code>QueueFullError</code>, <code>ValidationError</code> and
-    <code>CallError</code>; code sets <code>ErrorCodeV16</code> (1.6 spelling) and <code>ErrorCodeV2</code> (2.0.1 and 2.1).</li>
-    <li><code>ocpp_sdk.datetime</code>: <code>parse</code> and <code>format</code> for every version.
-    Naive datetimes are rejected.</li>
-    <li><code>ocpp_sdk.ocppj</code>: <code>Endpoint</code> correlates calls, enforces timeouts (30 s from send),
-    sends one CALL at a time with a bounded queue of 1,000, answers handler errors with
-    <code>InternalError</code> (the exception text is never sent), and fails waiting calls with
-    <code>NotConnectedError</code> when the connection ends. Nothing is queued or retried while offline.</li>
-  </ul>
-
-  <h2>OCPP 1.6 messages</h2>
-  <p>The message models are generated from the official JSON schemas by <code>tools/gen</code> and are
-  Pydantic v2 models. Python attributes are snake_case, the wire names are the spec's camelCase.
-  Requests are <code>&lt;Action&gt;Request</code> and answers <code>&lt;Action&gt;Confirmation</code>;
-  every class has an <code>ACTION</code> class variable. Enums are <code>StrEnum</code>s with the spec's values.</p>
-  <table>
-    <thead><tr><th>Module</th><th>Messages</th></tr></thead>
-    <tbody>
-      <tr><td><code>ocpp_sdk.v16.core</code></td><td>Authorize, BootNotification, ChangeAvailability, ChangeConfiguration,
-        ClearCache, DataTransfer, GetConfiguration, Heartbeat, MeterValues, RemoteStartTransaction,
-        RemoteStopTransaction, Reset, StartTransaction, StatusNotification, StopTransaction, UnlockConnector</td></tr>
-      <tr><td><code>ocpp_sdk.v16.firmware</code></td><td>DiagnosticsStatusNotification, FirmwareStatusNotification,
-        GetDiagnostics, UpdateFirmware</td></tr>
-      <tr><td><code>ocpp_sdk.v16.localauth</code></td><td>GetLocalListVersion, SendLocalList</td></tr>
-      <tr><td><code>ocpp_sdk.v16.reservation</code></td><td>CancelReservation, ReserveNow</td></tr>
-      <tr><td><code>ocpp_sdk.v16.smartcharging</code></td><td>ClearChargingProfile, GetCompositeSchedule, SetChargingProfile</td></tr>
-      <tr><td><code>ocpp_sdk.v16.remotetrigger</code></td><td>TriggerMessage</td></tr>
-      <tr><td><code>ocpp_sdk.v16.security</code></td><td>Security extension (whitepaper edition 3): CertificateSigned, DeleteCertificate,
-        ExtendedTriggerMessage, GetInstalledCertificateIds, GetLog, InstallCertificate, LogStatusNotification,
-        SecurityEventNotification, SignCertificate, SignedFirmwareStatusNotification, SignedUpdateFirmware</td></tr>
-    </tbody>
-  </table>
-  <p>Shared datatypes and enums are in <code>ocpp_sdk.v16.types</code>. The security extension adds <code>SecurityEvent</code>
-  (the whitepaper's event types), <code>is_known_event</code> and <code>is_critical_event</code>;
-  <code>SecurityEventNotification.type</code> stays an open string because vendors may send other types.
-  Certificates and CSRs are checked as PEM blocks of the right type (not parsed), certificate hashes as hex,
-  firmware signatures as Base64, and the <code>GetInstalledCertificateIds</code> answer may list no certificates
-  (the spec says 0..*, the schema 1..*; the spec wins). Handlers: <code>SecurityHandler</code> and
-  <code>Config.security</code> on both sides.</p>
-<pre><code>from ocpp_sdk.v16 import new_registry
-from ocpp_sdk.v16.core import BootNotificationConfirmation, BootNotificationRequest
-from ocpp_sdk.v16.types import RegistrationStatus
-
-registry = new_registry()
-request = BootNotificationRequest(charge_point_vendor="Acme", charge_point_model="X1")
-registry.encode(request)  # {'chargePointVendor': 'Acme', 'chargePointModel': 'X1'}
-
-answer = registry.decode_response(
-    "BootNotification",
-    {"status": "Accepted", "currentTime": "2025-01-02T03:04:05Z", "interval": 300},
-)
-assert isinstance(answer, BootNotificationConfirmation)
-assert answer.status is RegistrationStatus.ACCEPTED</code></pre>
-  <p>Incoming messages are validated on decode and outgoing ones on encode. Unknown properties are ignored
-  (real stations send extras); everything else the schemas reject is rejected, plus the clear rules of the
-  spec text: <code>connectorId</code> ranges, <code>meterValue</code> and <code>chargingSchedulePeriod</code>
-  not empty, the first charging period starting at 0, charging limits with at most one decimal, a
-  RemoteStartTransaction profile of purpose TxProfile, unique idTags (ignoring case) in SendLocalList with
-  <code>idTagInfo</code> on every entry of a Full update, and absolute URIs for
-  GetDiagnostics and UpdateFirmware. Naive datetimes are rejected; timestamps are sent in UTC with <code>Z</code>.
-  An invalid incoming call is answered with the CALLERROR code that fits (1.6 spelling,
-  <code>OccurenceConstraintViolation</code> included) and the offending field path.</p>
-
-  <h2>OCPP 1.6 Charge Point and CSMS</h2>
-  <p><code>ocpp_sdk.v16.charge_point.ChargePoint</code> is the client and <code>ocpp_sdk.v16.csms.CSMS</code>
-  the server; both are async context managers. Typed methods send each message and return the answer:
-  <code>await cp.boot_notification(BootNotificationRequest(...))</code> returns a
-  <code>BootNotificationConfirmation</code>; every method takes an optional <code>timeout=</code>.
-  The CSMS calls a station by ID, <code>await csms.reset("CP-1", ResetRequest(...))</code>, or through the
-  session object (<code>csms.ChargePoint</code>) its handlers receive.</p>
-  <ul>
-    <li><b>Handlers.</b> Each feature profile has a handler protocol per side (<code>CoreHandler</code>,
-    <code>FirmwareHandler</code>, <code>LocalAuthListHandler</code>, <code>ReservationHandler</code>,
-    <code>SmartChargingHandler</code>, <code>RemoteTriggerHandler</code>; the Central System receives only Core and
-    Firmware) in <code>ocpp_sdk.v16.charge_point_handlers</code> and <code>ocpp_sdk.v16.csms_handlers</code>.
-    Subclass the matching <code>Unimplemented...Handler</code> and override what you support; the rest answers
-    <code>NotSupported</code>. Methods are <code>on_&lt;message&gt;</code>, sync or async; CSMS handlers get the session first.
-    Wire them with the <code>Config</code> dataclass of each side; a profile left <code>None</code> answers
-    <code>NotSupported</code>, an unknown action <code>NotImplemented</code>.</li>
-    <li><b>Errors.</b> A handler that raises answers <code>InternalError</code> (the exception text is never sent);
-    raise <code>ocpp_sdk.errors.CallError(code, description)</code> to send a specific code. A CALLERROR from the
-    peer raises <code>CallError</code> in the caller.</li>
-    <li><b>Offline.</b> Calls fail fast with <code>NotConnectedError</code>, also a call cut off by a lost
-    connection. Nothing is queued or retried, and the station never sends BootNotification or Heartbeat on its own.
-    <code>ChargePoint</code> reconnects per OCPP-J 5.4 (<code>reconnect=Reconnect(...)</code>, <code>None</code> turns it off).</li>
-    <li><b>CSMS.</b> <code>charge_point_ids()</code>, <code>charge_point(id)</code>, <code>await for_each(fn)</code>
-    (identity order), <code>on_connect</code>/<code>on_disconnect</code> hooks, <code>await shutdown(timeout=...)</code>.
-    A station that reconnects gets a new session; the old session raises <code>NotConnectedError</code>.
-    Every session whose <code>on_connect</code> hook returned gets exactly one <code>on_disconnect</code>, a replaced
-    one too. If <code>on_connect</code> raises, the connection is closed (1011) and no <code>on_disconnect</code> follows.</li>
-  </ul>
-<pre><code>import asyncio
+  <h2 id="quick-start">Quick start <a class="anchor" href="#quick-start" aria-label="Link to Quick start">#</a></h2>
+  <p>A CSMS and a station in one process, talking over loopback. The CSMS answers BootNotification; everything it does not
+  handle is answered <code>NotSupported</code>.</p>
+  <div class="tabs" role="tablist" aria-label="Protocol version" hidden>
+    <button type="button" role="tab" id="tab-qs16" aria-controls="qs16" aria-selected="true">OCPP 1.6</button>
+    <button type="button" role="tab" id="tab-qs201" aria-controls="qs201" aria-selected="false" tabindex="-1">OCPP 2.0.1</button>
+  </div>
+  <div class="panel" id="qs16" role="tabpanel" aria-labelledby="tab-qs16">
+    <h3 class="panel-title">OCPP 1.6</h3>
+  <figure class="code"><figcaption>Python &middot; OCPP 1.6</figcaption>
+<pre data-lang="python"><code>import asyncio
 from datetime import UTC, datetime
 
 from ocpp_sdk.v16.charge_point import ChargePoint
@@ -254,26 +354,167 @@ async def main() -&gt; None:
 
 
 asyncio.run(main())
-</code></pre>
+</code></pre></figure>
+  </div>
+  <div class="panel" id="qs201" role="tabpanel" aria-labelledby="tab-qs201">
+    <h3 class="panel-title">OCPP 2.0.1</h3>
+  <figure class="code"><figcaption>Python &middot; OCPP 2.0.1</figcaption>
+<pre data-lang="python"><code>import asyncio
+from datetime import UTC, datetime
 
-  <h2>OCPP 1.6 transaction message queue</h2>
+from ocpp_sdk.v201.charging_station import ChargingStation
+from ocpp_sdk.v201.csms import CSMS, Config
+from ocpp_sdk.v201.csms import ChargingStation as Session
+from ocpp_sdk.v201.csms_handlers import UnimplementedProvisioningHandler
+from ocpp_sdk.v201.provisioning import BootNotificationRequest, BootNotificationResponse
+from ocpp_sdk.v201.types import BootReason, RegistrationStatus
+from ocpp_sdk.v201.types import ChargingStation as StationInfo
+
+
+class Provisioning(UnimplementedProvisioningHandler):
+    async def on_boot_notification(
+        self, charging_station: Session, request: BootNotificationRequest
+    ) -&gt; BootNotificationResponse:
+        print("boot from", charging_station.charge_point_id, request.charging_station.model)
+        return BootNotificationResponse(
+            current_time=datetime.now(UTC), interval=300, status=RegistrationStatus.ACCEPTED
+        )
+
+
+async def main() -&gt; None:
+    async with CSMS(Config(provisioning=Provisioning()), port=0) as csms:
+        url = f"ws://127.0.0.1:{csms.port}/ocpp/CS-1"
+        async with ChargingStation(url) as station:
+            boot = await station.boot_notification(
+                BootNotificationRequest(
+                    charging_station=StationInfo(model="X1", vendor_name="Acme"),
+                    reason=BootReason.POWER_UP,
+                )
+            )
+            print(boot.status, boot.interval)
+
+
+asyncio.run(main())
+</code></pre></figure>
+  </div>
+
+  <h2 id="examples">Examples <a class="anchor" href="#examples" aria-label="Link to Examples">#</a></h2>
+  <p><code>examples/v16/csms.py</code> and <code>examples/v16/charge_point.py</code> are a small Central System and a
+  station that run a transaction against each other over plain <code>ws://</code>:</p>
+  <figure class="code"><figcaption>Shell</figcaption>
+<pre data-lang="shell"><code>python examples/v16/csms.py --port 9000 [--password SECRET]
+python examples/v16/charge_point.py --url ws://127.0.0.1:9000/CP-1 [--password SECRET]</code></pre></figure>
+  <p>The same pairs exist for 2.0.1 (<code>examples/v201/csms.py</code>, <code>examples/v201/charging_station.py</code>) and 2.1
+  (<code>examples/v21/...</code>; the station sends a periodic event stream), and <code>examples/loadtest</code> runs an in-process
+  CSMS with many stations. The test suite runs the examples against each other, and against the examples of go-ocpp-sdk v1.1.0
+  in both directions (slow tests; they need the <code>go</code> tool).</p>
+
+  <h2 id="v16">OCPP 1.6 <a class="anchor" href="#v16" aria-label="Link to OCPP 1.6">#</a></h2>
+
+  <h3 id="v16-messages">Messages <a class="anchor" href="#v16-messages" aria-label="Link to Messages">#</a></h3>
+  <p>The message models are generated from the official JSON schemas by <code>tools/gen</code> and are
+  Pydantic v2 models. Python attributes are snake_case, the wire names are the spec's camelCase.
+  Requests are <code>&lt;Action&gt;Request</code> and answers <code>&lt;Action&gt;Confirmation</code>;
+  every class has an <code>ACTION</code> class variable. Enums are <code>StrEnum</code>s with the spec's values.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Module</th><th>Messages</th></tr></thead>
+    <tbody>
+      <tr><td><code>ocpp_sdk.v16.core</code></td><td>Authorize, BootNotification, ChangeAvailability, ChangeConfiguration,
+        ClearCache, DataTransfer, GetConfiguration, Heartbeat, MeterValues, RemoteStartTransaction,
+        RemoteStopTransaction, Reset, StartTransaction, StatusNotification, StopTransaction, UnlockConnector</td></tr>
+      <tr><td><code>ocpp_sdk.v16.firmware</code></td><td>DiagnosticsStatusNotification, FirmwareStatusNotification,
+        GetDiagnostics, UpdateFirmware</td></tr>
+      <tr><td><code>ocpp_sdk.v16.localauth</code></td><td>GetLocalListVersion, SendLocalList</td></tr>
+      <tr><td><code>ocpp_sdk.v16.reservation</code></td><td>CancelReservation, ReserveNow</td></tr>
+      <tr><td><code>ocpp_sdk.v16.smartcharging</code></td><td>ClearChargingProfile, GetCompositeSchedule, SetChargingProfile</td></tr>
+      <tr><td><code>ocpp_sdk.v16.remotetrigger</code></td><td>TriggerMessage</td></tr>
+      <tr><td><code>ocpp_sdk.v16.security</code></td><td>Security extension (whitepaper edition 3): CertificateSigned, DeleteCertificate,
+        ExtendedTriggerMessage, GetInstalledCertificateIds, GetLog, InstallCertificate, LogStatusNotification,
+        SecurityEventNotification, SignCertificate, SignedFirmwareStatusNotification, SignedUpdateFirmware</td></tr>
+    </tbody>
+  </table></div>
+  <p>Shared datatypes and enums are in <code>ocpp_sdk.v16.types</code>. The security extension adds <code>SecurityEvent</code>
+  (the whitepaper's event types), <code>is_known_event</code> and <code>is_critical_event</code>;
+  <code>SecurityEventNotification.type</code> stays an open string because vendors may send other types.
+  Certificates and CSRs are checked as PEM blocks of the right type (not parsed), certificate hashes as hex,
+  and firmware signatures as Base64. Handlers: <code>SecurityHandler</code> and <code>Config.security</code> on both sides.</p>
+  <p class="note"><b>Spec beats schema.</b> The <code>GetInstalledCertificateIds</code> answer may list no certificates:
+  the spec says 0..*, the schema 1..*.</p>
+  <figure class="code"><figcaption>Python &middot; encode and decode without a connection</figcaption>
+<pre data-lang="python"><code>from ocpp_sdk.v16 import new_registry
+from ocpp_sdk.v16.core import BootNotificationConfirmation, BootNotificationRequest
+from ocpp_sdk.v16.types import RegistrationStatus
+
+registry = new_registry()
+request = BootNotificationRequest(charge_point_vendor="Acme", charge_point_model="X1")
+registry.encode(request)  # {'chargePointVendor': 'Acme', 'chargePointModel': 'X1'}
+
+answer = registry.decode_response(
+    "BootNotification",
+    {"status": "Accepted", "currentTime": "2025-01-02T03:04:05Z", "interval": 300},
+)
+assert isinstance(answer, BootNotificationConfirmation)
+assert answer.status is RegistrationStatus.ACCEPTED</code></pre></figure>
+  <p>Incoming messages are validated on decode and outgoing ones on encode. Unknown properties are ignored
+  (real stations send extras); everything else the schemas reject is rejected, plus the clear rules of the
+  spec text: <code>connectorId</code> ranges, <code>meterValue</code> and <code>chargingSchedulePeriod</code>
+  not empty, the first charging period starting at 0, charging limits with at most one decimal, a
+  RemoteStartTransaction profile of purpose TxProfile, unique idTags (ignoring case) in SendLocalList with
+  <code>idTagInfo</code> on every entry of a Full update, and absolute URIs for
+  GetDiagnostics and UpdateFirmware. Naive datetimes are rejected; timestamps are sent in UTC with <code>Z</code>.
+  An invalid incoming call is answered with the CALLERROR code that fits (1.6 spelling,
+  <code>OccurenceConstraintViolation</code> included) and the offending field path.</p>
+
+  <h3 id="v16-api">Charge Point and CSMS <a class="anchor" href="#v16-api" aria-label="Link to Charge Point and CSMS">#</a></h3>
+  <p><code>ocpp_sdk.v16.charge_point.ChargePoint</code> is the client and <code>ocpp_sdk.v16.csms.CSMS</code>
+  the server; both are async context managers (see the <a href="#quick-start">quick start</a>). Typed methods send each message
+  and return the answer: <code>await cp.boot_notification(BootNotificationRequest(...))</code> returns a
+  <code>BootNotificationConfirmation</code>; every method takes an optional <code>timeout=</code>.
+  The CSMS calls a station by ID, <code>await csms.reset("CP-1", ResetRequest(...))</code>, or through the
+  session object (<code>csms.ChargePoint</code>) its handlers receive.</p>
+  <ul class="points">
+    <li><b>Handlers</b> Each feature profile has a handler protocol per side (<code>CoreHandler</code>,
+    <code>FirmwareHandler</code>, <code>LocalAuthListHandler</code>, <code>ReservationHandler</code>,
+    <code>SmartChargingHandler</code>, <code>RemoteTriggerHandler</code>; the Central System receives only Core and
+    Firmware) in <code>ocpp_sdk.v16.charge_point_handlers</code> and <code>ocpp_sdk.v16.csms_handlers</code>.
+    Subclass the matching <code>Unimplemented...Handler</code> and override what you support; the rest answers
+    <code>NotSupported</code>. Methods are <code>on_&lt;message&gt;</code>, sync or async; CSMS handlers get the session first.
+    Wire them with the <code>Config</code> dataclass of each side; a profile left <code>None</code> answers
+    <code>NotSupported</code>, an unknown action <code>NotImplemented</code>.</li>
+    <li><b>Errors</b> A handler that raises answers <code>InternalError</code> (the exception text is never sent);
+    raise <code>ocpp_sdk.errors.CallError(code, description)</code> to send a specific code. A CALLERROR from the
+    peer raises <code>CallError</code> in the caller.</li>
+    <li><b>Offline</b> Calls fail fast with <code>NotConnectedError</code>, also a call cut off by a lost
+    connection. Nothing is queued or retried, and the station never sends BootNotification or Heartbeat on its own.
+    <code>ChargePoint</code> reconnects per OCPP-J 5.4 (<code>reconnect=Reconnect(...)</code>, <code>None</code> turns it off).</li>
+    <li><b>CSMS</b> <code>charge_point_ids()</code>, <code>charge_point(id)</code>, <code>await for_each(fn)</code>
+    (identity order), <code>on_connect</code>/<code>on_disconnect</code> hooks, <code>await shutdown(timeout=...)</code>.
+    A station that reconnects gets a new session; the old session raises <code>NotConnectedError</code>.
+    Every session whose <code>on_connect</code> hook returned gets exactly one <code>on_disconnect</code>, a replaced
+    one too. If <code>on_connect</code> raises, the connection is closed (1011) and no <code>on_disconnect</code> follows.</li>
+  </ul>
+
+  <h3 id="v16-queue">Transaction message queue <a class="anchor" href="#v16-queue" aria-label="Link to Transaction message queue">#</a></h3>
   <p>Opt-in and separate from <code>ChargePoint</code> (spec section 3.7):
   <code>ocpp_sdk.v16.transaction_queue.TransactionQueue(charge_point, ...)</code>. Hand it
   StartTransaction, StopTransaction and MeterValues with <code>start_transaction</code>,
   <code>stop_transaction</code> and <code>meter_values</code>; it delivers them oldest first and
-  waits while the station is offline (not a failure; <code>ChargePoint.wait_online()</code> is what it waits on).
-  A message the Central System fails to process (CALLERROR, timeout, unusable answer) is tried up to
-  <code>attempts</code> times (default 3), waiting <code>retry_interval</code> (default 60 s) times the number of
-  earlier attempts, then dropped and reported to <code>on_discard(action, request, reason)</code>.
-  <code>start_transaction</code> returns a <code>Transaction</code> handle: pass it as <code>transaction=</code> to the
-  messages that belong to the transaction and they get the assigned <code>transactionId</code> when delivered
-  (use any placeholder in the request); if the start is dropped they are dropped too.
-  <code>queue.join()</code> waits until the queue is empty and <code>queue.pending</code> counts what is waiting.
-  The state lives in a <code>TransactionStore</code>: <code>MemoryStore</code> (default) or
-  <code>FileStore(path)</code> (JSON file, replaced atomically on every change, so a restart picks up where it stopped).
-  Saves made while delivering run in a worker thread, so a slow disk does not stall the event loop; a failing
-  <code>on_discard</code>, a stored message that no longer validates or a failed save is logged and the queue keeps going.</p>
-<pre><code>import asyncio
+  waits while the station is offline (not a failure; <code>ChargePoint.wait_online()</code> is what it waits on).</p>
+  <ul class="points">
+    <li><b>Retries</b> A message the Central System fails to process (CALLERROR, timeout, unusable answer) is tried up to
+    <code>attempts</code> times (default 3), waiting <code>retry_interval</code> (default 60 s) times the number of
+    earlier attempts, then dropped and reported to <code>on_discard(action, request, reason)</code>.</li>
+    <li><b>Transactions</b> <code>start_transaction</code> returns a <code>Transaction</code> handle: pass it as <code>transaction=</code> to the
+    messages that belong to the transaction and they get the assigned <code>transactionId</code> when delivered
+    (use any placeholder in the request); if the start is dropped they are dropped too.
+    <code>queue.join()</code> waits until the queue is empty and <code>queue.pending</code> counts what is waiting.</li>
+    <li><b>Persistence</b> The state lives in a <code>TransactionStore</code>: <code>MemoryStore</code> (default) or
+    <code>FileStore(path)</code> (JSON file, replaced atomically on every change, so a restart picks up where it stopped).
+    Saves made while delivering run in a worker thread, so a slow disk does not stall the event loop; a failing
+    <code>on_discard</code>, a stored message that no longer validates or a failed save is logged and the queue keeps going.</li>
+  </ul>
+  <figure class="code"><figcaption>Python &middot; transaction queue</figcaption>
+<pre data-lang="python"><code>import asyncio
 from datetime import UTC, datetime
 
 from ocpp_sdk.v16.charge_point import ChargePoint
@@ -321,9 +562,9 @@ async def main() -&gt; None:
 
 
 asyncio.run(main())
-</code></pre>
+</code></pre></figure>
 
-  <h2>OCPP 2.0.1</h2>
+  <h2 id="v201">OCPP 2.0.1 <a class="anchor" href="#v201" aria-label="Link to OCPP 2.0.1">#</a></h2>
   <p>Same shape as 1.6, in <code>ocpp_sdk.v201</code>. The 64 messages are generated from the official schemas, one module
   per functional block (<code>security</code>, <code>provisioning</code>, <code>authorization</code>, <code>localauthlist</code>,
   <code>transactions</code>, <code>remotecontrol</code>, <code>availability</code>, <code>reservation</code>,
@@ -332,64 +573,28 @@ asyncio.run(main())
   datatypes and enums in <code>ocpp_sdk.v201.types</code>. Names follow the schemas without their <code>Type</code> /
   <code>EnumType</code> suffix (<code>IdToken</code>, <code>RegistrationStatus</code>; the enum of an <code>IdToken</code> object is
   <code>IdTokenEnum</code>) and messages are <code>&lt;Action&gt;Request</code> / <code>&lt;Action&gt;Response</code>.
-  <code>customData</code> keeps unknown vendor properties; other unknown properties are ignored.</p>
-  <ul>
-    <li><b>Classes.</b> <code>ocpp_sdk.v201.charging_station.ChargingStation</code> (client) and
+  <code>customData</code> keeps unknown vendor properties; other unknown properties are ignored.
+  The <a href="#quick-start">quick start</a> has a 2.0.1 example.</p>
+  <ul class="points">
+    <li><b>Classes</b> <code>ocpp_sdk.v201.charging_station.ChargingStation</code> (client) and
     <code>ocpp_sdk.v201.csms.CSMS</code> (server; the session handed to its handlers is <code>csms.ChargingStation</code>), each with a
     <code>Config</code> that has one handler field per block the side receives (15 for the station, 13 for the CSMS).
     Handler protocols and <code>Unimplemented...</code> bases are in <code>ocpp_sdk.v201.charging_station_handlers</code> and
     <code>ocpp_sdk.v201.csms_handlers</code>; everything else (typed calls, <code>NotSupported</code> / <code>NotImplemented</code> /
     <code>InternalError</code>, offline behaviour, reconnect, <code>for_each</code>, hooks) works as for 1.6.</li>
-    <li><b>Rules beyond the schemas</b> (clear statements of the spec text): <code>evseId</code> &gt; 0 where required, a
+    <li><b>Rules beyond the schemas</b> Clear statements of the spec text: <code>evseId</code> &gt; 0 where required, a
     RequestStartTransaction profile of purpose TxProfile, <code>transactionId</code> in a profile only for TxProfile,
     <code>valuesList</code> for option, member and sequence lists, <code>location</code> for a Published firmware,
     SendLocalList Full with <code>idTokenInfo</code> on every entry, charging limits with one decimal, <code>phaseToUse</code> 1 to 3,
     monitoring severity 0 to 9. An optional list that is present must not be empty (the schemas' <code>minItems</code>).</li>
-    <li><b>Appendices.</b> <code>ocpp_sdk.v201.appendices</code> has the standardized components, variables, units, reason codes
+    <li><b>Appendices</b> <code>ocpp_sdk.v201.appendices</code> has the standardized components, variables, units, reason codes
     and security events of the appendices CSV files as constants (<code>Component.AUTH_CTRLR</code>, <code>Unit.KWH</code>,
     <code>ReasonCode...</code>, <code>SecurityEvent...</code>), the device model table and
     <code>is_known_security_event</code> / <code>is_critical_security_event</code>. Messages keep plain strings.</li>
   </ul>
-<pre><code>import asyncio
-from datetime import UTC, datetime
-
-from ocpp_sdk.v201.charging_station import ChargingStation
-from ocpp_sdk.v201.csms import CSMS, Config
-from ocpp_sdk.v201.csms import ChargingStation as Session
-from ocpp_sdk.v201.csms_handlers import UnimplementedProvisioningHandler
-from ocpp_sdk.v201.provisioning import BootNotificationRequest, BootNotificationResponse
-from ocpp_sdk.v201.types import BootReason, RegistrationStatus
-from ocpp_sdk.v201.types import ChargingStation as StationInfo
-
-
-class Provisioning(UnimplementedProvisioningHandler):
-    async def on_boot_notification(
-        self, charging_station: Session, request: BootNotificationRequest
-    ) -&gt; BootNotificationResponse:
-        print("boot from", charging_station.charge_point_id, request.charging_station.model)
-        return BootNotificationResponse(
-            current_time=datetime.now(UTC), interval=300, status=RegistrationStatus.ACCEPTED
-        )
-
-
-async def main() -&gt; None:
-    async with CSMS(Config(provisioning=Provisioning()), port=0) as csms:
-        url = f"ws://127.0.0.1:{csms.port}/ocpp/CS-1"
-        async with ChargingStation(url) as station:
-            boot = await station.boot_notification(
-                BootNotificationRequest(
-                    charging_station=StationInfo(model="X1", vendor_name="Acme"),
-                    reason=BootReason.POWER_UP,
-                )
-            )
-            print(boot.status, boot.interval)
-
-
-asyncio.run(main())
-</code></pre>
   <p>Examples: <code>examples/v201/csms.py</code> and <code>examples/v201/charging_station.py</code>, also tested against go-ocpp-sdk's 2.0.1 examples.</p>
 
-  <h2>OCPP 2.1</h2>
+  <h2 id="v21">OCPP 2.1 <a class="anchor" href="#v21" aria-label="Link to OCPP 2.1">#</a></h2>
   <p>In <code>ocpp_sdk.v21</code>, with the same shape as 2.0.1 and its <b>own</b> types (it does not import <code>ocpp_sdk.v201</code>,
   because <code>ocpp2.1</code> is a different subprotocol): 91 messages in 19 functional-block modules (the 16 of 2.0.1 plus
   <code>bidirectional</code>, <code>dercontrol</code> and <code>batteryswap</code>), <code>ChargingStation</code> and <code>CSMS</code> in
@@ -397,8 +602,8 @@ asyncio.run(main())
   <code>ocpp_sdk.v21.charging_station_handlers</code> and <code>ocpp_sdk.v21.csms_handlers</code>, and the appendices constants in
   <code>ocpp_sdk.v21.appendices</code> (which also has the idToken types, connector types, charging limit sources, payment brands and
   recognitions, additionalInfo types and signing methods). <code>idToken.type</code> is a plain string in 2.1.</p>
-  <ul>
-    <li><b>SEND and CALLRESULTERROR.</b> OCPP 2.1 adds two frame types that exist only on <code>ocpp2.1</code> connections (they are unknown
+  <ul class="points">
+    <li><b>SEND and CALLRESULTERROR</b> OCPP 2.1 adds two frame types that exist only on <code>ocpp2.1</code> connections (they are unknown
     message types on the other versions). A SEND (<code>[6, ...]</code>) is an unconfirmed message: it is written at once, is not queued
     behind calls, may go out while a call is outstanding and is never answered. The one standard SEND message is
     <code>NotifyPeriodicEventStream</code>: <code>await station.notify_periodic_event_stream(message)</code>. The CSMS receives SENDs through
@@ -406,7 +611,7 @@ asyncio.run(main())
     newest is dropped when it is full); a malformed or unknown SEND is only logged. The station's own <code>Config.send_handler(message)</code>
     is for vendor use. A CALLRESULT that cannot be decoded is answered with a CALLRESULTERROR; one received from the peer is logged.
     A CALL of a one-way message is answered <code>ProtocolError</code>.</li>
-    <li><b>Rules beyond the schemas</b> (spec text and errata 2026-09): the 2.0.1 rules, V2X curves with at least two coordinates (and a
+    <li><b>Rules beyond the schemas</b> Spec text and errata 2026-09: the 2.0.1 rules, V2X curves with at least two coordinates (and a
     freq-watt curve for <code>LocalFrequency</code>), <code>randomizedDelay</code> only for TxProfile and TxDefaultProfile,
     <code>pctMaxDischargePower</code> required and 0 to 100, <code>PowerMonitoringMustTrip</code> not as a stand-alone DER control,
     <code>hv10MinMeanValue</code> and <code>hv10MinMeanTripDelay</code> together, tariff conditions with 24h times and <code>YYYY-MM-DD</code> dates.</li>
@@ -414,23 +619,93 @@ asyncio.run(main())
   <p>Examples: <code>examples/v21/csms.py</code> and <code>examples/v21/charging_station.py</code> (the station sends a periodic event stream), also
   tested against go-ocpp-sdk's 2.1 examples.</p>
 
-  <h2>Examples</h2>
-  <p><code>examples/v16/csms.py</code> and <code>examples/v16/charge_point.py</code> are a small Central System and a
-  station that run a transaction against each other over plain <code>ws://</code>:</p>
-<pre><code>python examples/v16/csms.py --port 9000 [--password SECRET]
-python examples/v16/charge_point.py --url ws://127.0.0.1:9000/CP-1 [--password SECRET]</code></pre>
-  <p>The test suite runs them against each other, and against the examples of go-ocpp-sdk v1.1.0 in both
-  directions (slow tests; they need the <code>go</code> tool).</p>
+  <h2 id="transport">Transport <a class="anchor" href="#transport" aria-label="Link to Transport">#</a></h2>
+  <p><code>ocpp_sdk.transport</code> is version-agnostic. A <code>Server</code> and a
+  <code>Client</code> hand every received text frame to a <em>sink</em> (anything with
+  <code>feed(raw)</code> and <code>async close()</code>; <code>ocppj.Endpoint</code> is one). The high-level classes build on it;
+  use it directly only for something custom.</p>
+  <figure class="code"><figcaption>Python &middot; raw transport</figcaption>
+<pre data-lang="python"><code>import asyncio
 
-  <h2>Logging</h2>
-  <p>The SDK logs through the standard <code>logging</code> module under <code>ocpp_sdk.*</code>
-  (<code>ocpp_sdk.ocppj.endpoint</code>, <code>ocpp_sdk.transport.server</code>, <code>ocpp_sdk.v16.csms</code>, ...). It
-  never configures handlers or levels, so call <code>logging.basicConfig(level=logging.INFO)</code> or attach your own.
-  The WebSocket library logs as <code>ocpp_sdk.transport.websockets</code>. Message payloads are not logged.</p>
+from ocpp_sdk.transport import Client, Connection, Server
 
-  <h2>Error handling</h2>
+
+class Printer:
+    def __init__(self, name: str) -&gt; None:
+        self.name = name
+
+    def feed(self, raw: str) -&gt; None:
+        print(self.name, "received", raw)
+
+    async def close(self) -&gt; None:
+        pass
+
+
+async def main() -&gt; None:
+    async def csms_connect(conn: Connection) -&gt; Printer:
+        return Printer("csms")
+
+    async def station_connect(conn: Connection) -&gt; Printer:
+        return Printer("station")
+
+    async with Server(csms_connect, port=0) as server:
+        url = f"ws://127.0.0.1:{server.port}/ocpp/CP001"
+        async with Client(url, station_connect) as client:
+            assert client.connection is not None
+            await client.connection.send('[2,"1","Heartbeat",{}]')
+            await asyncio.sleep(0.1)
+
+
+asyncio.run(main())</code></pre></figure>
+  <ul>
+    <li>The charge point ID is the last URL path segment (1-48 characters, no <code>:</code> or <code>/</code>).
+    An invalid or unknown ID (<code>known_id</code>) answers HTTP 404.</li>
+    <li>The server picks the version by its own order of preference among the subprotocols the client
+    offers (<code>ocpp1.6</code>, <code>ocpp2.0.1</code>, <code>ocpp2.1</code>). With no common one the
+    handshake completes and the connection is closed with 1002.</li>
+    <li>A second connection with the same ID replaces the first (closed with 1008).</li>
+    <li>Compression is off, binary frames are refused (1003), ping every 30 s with a 10 s timeout,
+    messages up to 1 MiB (1009 above that).</li>
+    <li><code>Server.shutdown(timeout)</code> closes every connection with 1001, and a handshake that
+    finishes during shutdown is closed with 1001 too.</li>
+    <li><code>Client</code> reconnects as in OCPP-J section 5.4 (<code>Reconnect(wait_minimum=1,
+    random_range=2, repeat_times=6)</code>): the wait applies after every lost connection and failed
+    attempt, doubles up to <code>repeat_times</code> times, and resets after a successful connection.
+    A missing common subprotocol counts as a failed attempt. <code>reconnect=None</code> makes one attempt.</li>
+  </ul>
+
+  <h2 id="security">Security profiles <a class="anchor" href="#security" aria-label="Link to Security profiles">#</a></h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Profile</th><th>Server</th><th>Client</th></tr></thead>
+    <tbody>
+      <tr><td>1: Basic auth</td><td><code>authenticate=fn(id, password)</code> (401 on failure)</td><td><code>password=...</code></td></tr>
+      <tr><td>2: TLS + Basic auth</td><td><code>ssl_context=server_ssl_context(cert, key)</code></td><td><code>ssl_context=client_ssl_context(cafile=...)</code></td></tr>
+      <tr><td>3: mutual TLS</td><td><code>server_ssl_context(..., client_ca=...)</code> and <code>check_certificate_identity=True</code>
+        (certificate CN must equal the ID, optionally O must contain <code>operator_name</code>; 403 otherwise)</td>
+        <td><code>client_ssl_context(cafile, certfile, keyfile)</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>TLS 1.2 or newer, with ECDHE AES-GCM suites; TLS 1.0 and 1.1 are not supported.</p>
+  <p>The 1.6 Basic-auth password is the <code>AuthorizationKey</code>: 16 to 20 bytes as 32 to 40 hexadecimal digits, sent as that
+  text. <code>ocpp_sdk.transport.auth.check_authorization_key(key)</code> validates one and
+  <code>generate_authorization_key()</code> makes a new 40-digit key.</p>
+
+  <h2 id="core">Core <a class="anchor" href="#core" aria-label="Link to Core">#</a></h2>
+  <ul class="points">
+    <li><b><code>ocpp_sdk.errors</code></b> <code>OCPPError</code> and its subclasses <code>CallTimeoutError</code>,
+    <code>NotConnectedError</code>, <code>QueueFullError</code>, <code>ValidationError</code> and
+    <code>CallError</code>; code sets <code>ErrorCodeV16</code> (1.6 spelling) and <code>ErrorCodeV2</code> (2.0.1 and 2.1).</li>
+    <li><b><code>ocpp_sdk.datetime</code></b> <code>parse</code> and <code>format</code> for every version.
+    Naive datetimes are rejected.</li>
+    <li><b><code>ocpp_sdk.ocppj</code></b> <code>Endpoint</code> correlates calls, enforces timeouts (30 s from send),
+    sends one CALL at a time with a bounded queue of 1,000, answers handler errors with
+    <code>InternalError</code> (the exception text is never sent), and fails waiting calls with
+    <code>NotConnectedError</code> when the connection ends. Nothing is queued or retried while offline.</li>
+  </ul>
+
+  <h2 id="errors">Error handling <a class="anchor" href="#errors" aria-label="Link to Error handling">#</a></h2>
   <p>All exceptions derive from <code>ocpp_sdk.errors.OCPPError</code>.</p>
-  <table>
+  <div class="table-wrap"><table>
     <thead><tr><th>Exception</th><th>When</th></tr></thead>
     <tbody>
       <tr><td><code>NotConnectedError</code></td><td>No connection, or the connection was lost during the call. Nothing is queued or retried.</td></tr>
@@ -439,10 +714,149 @@ python examples/v16/charge_point.py --url ws://127.0.0.1:9000/CP-1 [--password S
       <tr><td><code>ValidationError</code></td><td>A request or an answer is invalid (<code>.issues</code> lists field paths).</td></tr>
       <tr><td><code>QueueFullError</code></td><td>More than 1,000 calls are waiting behind the outstanding one.</td></tr>
     </tbody>
-  </table>
+  </table></div>
 
-  <p>Source: <a href="https://github.com/foecum/python-ocpp-sdk">github.com/foecum/python-ocpp-sdk</a>.
-  Sister project: <a href="https://github.com/foecum/go-ocpp-sdk">go-ocpp-sdk</a>.</p>
+  <h2 id="logging">Logging <a class="anchor" href="#logging" aria-label="Link to Logging">#</a></h2>
+  <p>The SDK logs through the standard <code>logging</code> module under <code>ocpp_sdk.*</code>
+  (<code>ocpp_sdk.ocppj.endpoint</code>, <code>ocpp_sdk.transport.server</code>, <code>ocpp_sdk.v16.csms</code>, ...). It
+  never configures handlers or levels, so call <code>logging.basicConfig(level=logging.INFO)</code> or attach your own.
+  The WebSocket library logs as <code>ocpp_sdk.transport.websockets</code>. Message payloads are not logged.</p>
+
+  <h2 id="status">Status <a class="anchor" href="#status" aria-label="Link to Status">#</a></h2>
+  <p>Version 1.1.1. Everything below is implemented and tested; OCPP 1.6, 2.0.1 and 2.1 stations and CSMSs can be built.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Part</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td class="wrap">Core: errors, date-times, OCPP-J frames, registry, endpoint</td><td><span class="ok">done</span></td></tr>
+      <tr><td class="wrap">WebSocket transport: server, client with reconnect, security profiles 1-3</td><td><span class="ok">done</span></td></tr>
+      <tr><td class="wrap">OCPP 1.6J message models (39 messages: six feature profiles and the security extension)</td><td><span class="ok">done</span></td></tr>
+      <tr><td class="wrap">OCPP 1.6J high-level <code>ChargePoint</code> and <code>CSMS</code> API</td><td><span class="ok">done</span></td></tr>
+      <tr><td class="wrap">OCPP 1.6J transaction message queue</td><td><span class="ok">done</span></td></tr>
+      <tr><td class="wrap">OCPP 1.6J examples and go-ocpp-sdk interop tests</td><td><span class="ok">done</span></td></tr>
+      <tr><td class="wrap">OCPP 1.6 security extension (11 messages, AuthorizationKey helpers)</td><td><span class="ok">done</span></td></tr>
+      <tr><td class="wrap">OCPP 2.0.1 (64 messages, 16 functional blocks, appendices constants, <code>ChargingStation</code> and <code>CSMS</code>)</td><td><span class="ok">done</span></td></tr>
+      <tr><td class="wrap">OCPP 2.1 (91 messages, 19 functional blocks, SEND and CALLRESULTERROR frames, appendices constants, <code>ChargingStation</code> and <code>CSMS</code>)</td><td><span class="ok">done</span></td></tr>
+    </tbody>
+  </table></div>
 </main>
+</div>
+
+<footer>
+  <div class="inner">
+    <span>ocpp-sdk v1.1.1 &middot; MIT licence</span>
+    <span>Source: <a href="https://github.com/foecum/python-ocpp-sdk">github.com/foecum/python-ocpp-sdk</a> &middot;
+      Sister project: <a href="https://github.com/foecum/go-ocpp-sdk">go-ocpp-sdk</a></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  document.body.classList.replace("no-js", "js");
+
+  // Python highlighting: comments, strings, numbers, keywords, decorators, names.
+  const KW = new Set(("False None True and as assert async await break class continue def del elif else except " +
+    "finally for from global if import in is lambda nonlocal not or pass raise return try while with yield").split(" "));
+  const BUILTIN = new Set("print isinstance type len range str int float dict list set tuple super".split(" "));
+  const TOKEN = /(#[^\n]*)|([rbfuRBFU]{0,2}(?:"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'))|(\b\d[\d_]*(?:\.\d+)?\b)|(@[A-Za-z_]\w*)|([A-Za-z_]\w*)/g;
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const span = (cls, s) => `<span class="${cls}">${esc(s)}</span>`;
+  function highlight(src) {
+    let out = "", last = 0, prev = "", m;
+    TOKEN.lastIndex = 0;
+    while ((m = TOKEN.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      const [text, com, str, num, deco, name] = m;
+      if (com) out += span("t-com", text);
+      else if (str) out += span("t-str", text);
+      else if (num) out += span("t-num", text);
+      else if (deco) out += span("t-fn", text);
+      else if (KW.has(name)) out += span("t-kw", text);
+      else if (prev === "def" || BUILTIN.has(name)) out += span("t-fn", text);
+      else if (prev === "class" || /^[A-Z][A-Za-z0-9]*[a-z]/.test(name)) out += span("t-ty", text);
+      else out += esc(text);
+      if (name) prev = name; else if (!/^\s*$/.test(text)) prev = "";
+      last = TOKEN.lastIndex;
+    }
+    return out + esc(src.slice(last));
+  }
+  document.querySelectorAll('pre[data-lang="python"] code').forEach((code) => {
+    code.innerHTML = highlight(code.textContent);
+  });
+
+  // Copy buttons.
+  function addCopy(button, getText) {
+    button.hidden = false;
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(getText());
+        button.textContent = "Copied";
+      } catch {
+        button.textContent = "Press Ctrl+C";
+      }
+      setTimeout(() => { button.textContent = "Copy"; }, 1500);
+    });
+  }
+  if (navigator.clipboard) {
+    document.querySelectorAll("figure.code").forEach((fig) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "copy";
+      button.textContent = "Copy";
+      fig.querySelector("figcaption").append(button);
+      addCopy(button, () => fig.querySelector("pre code").textContent);
+    });
+    document.querySelectorAll("button[data-copy]").forEach((button) => {
+      addCopy(button, () => document.getElementById(button.dataset.copy).textContent);
+    });
+  }
+
+  // Quick start tabs.
+  const tablist = document.querySelector(".tabs");
+  if (tablist) {
+    const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+    const select = (tab) => {
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.setAttribute("aria-selected", String(on));
+        t.tabIndex = on ? 0 : -1;
+        document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+      });
+    };
+    tabs.forEach((tab, i) => {
+      tab.addEventListener("click", () => select(tab));
+      tab.addEventListener("keydown", (e) => {
+        const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (!step) return;
+        const next = tabs[(i + step + tabs.length) % tabs.length];
+        select(next);
+        next.focus();
+      });
+    });
+    tablist.hidden = false;
+    select(tabs[0]);
+  }
+
+  // Contents: always open in the sidebar, a menu on narrow screens; highlight the current section.
+  const toc = document.getElementById("toc");
+  const wide = matchMedia("(min-width: 64rem)");
+  const syncToc = () => { toc.open = wide.matches; };
+  syncToc();
+  wide.addEventListener("change", syncToc);
+  toc.addEventListener("click", (e) => {
+    if (e.target.closest("a") && !wide.matches) toc.open = false;
+  });
+  const links = new Map([...toc.querySelectorAll("a")].map((a) => [a.getAttribute("href").slice(1), a]));
+  const headings = [...document.querySelectorAll("main h2[id], main h3[id]")].filter((h) => links.has(h.id));
+  const markCurrent = () => {
+    let current = headings[0];
+    for (const h of headings) {
+      if (h.getBoundingClientRect().top < 120) current = h; else break;
+    }
+    links.forEach((a, id) => a.setAttribute("aria-current", String(id === current.id)));
+  };
+  addEventListener("scroll", markCurrent, { passive: true });
+  markCurrent();
+})();
+</script>
 </body>
 </html>
